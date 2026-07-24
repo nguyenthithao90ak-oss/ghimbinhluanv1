@@ -239,6 +239,13 @@ document.getElementById('btnSaveProxy').addEventListener('click', () => {
     });
 });
 
+function loadTeleConfig() {
+    chrome.storage.local.get(['teleBotToken', 'teleChatId'], (st) => {
+        if (st.teleBotToken) document.getElementById('teleBotToken').value = st.teleBotToken;
+        if (st.teleChatId) document.getElementById('teleChatId').value = st.teleChatId;
+    });
+}
+
 function loadProxyConfig() {
     chrome.storage.local.get(['proxyEnable', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
         const enabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
