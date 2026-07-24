@@ -60,11 +60,17 @@
                     <option value="ONCE">🛑 Chạy 1 Lần Rồi Dừng (Báo Cáo)</option>
                     <option value="CONTINUOUS">♾️ Chạy Liên Tục Vòng Mới Ngay</option>
                     <option value="DELAY">⏳ Chạy Cách Khoảng (Nghỉ X phút)</option>
+                    <option value="SCHEDULE">⏰ Hẹn Giờ Chạy (Giờ Vàng)</option>
                 </select>
             </div>
             <div class="group" id="loopDelayGroup" style="display: none;">
                 <label>Thời gian nghỉ (Phút):</label>
                 <input type="number" id="loopDelayMinutes" min="1" max="1440" value="30">
+            </div>
+            <div class="group" id="scheduleTimeGroup" style="display: none;">
+                <label>Các khung giờ chạy (VD: 08:00, 12:00, 20:00):</label>
+                <input type="text" id="scheduleTimes" value="08:00, 12:00, 20:00" placeholder="Cách nhau dấu phẩy">
+                <small style="color:red; font-size:10px;">Lưu ý: Mở máy và bật Chrome tại các giờ này</small>
             </div>
             <button id="btnStartCheck" class="btn-main">🚀 BẮT ĐẦU CHUYỂN NICK & CHẠY</button>
         </div>

@@ -63,6 +63,19 @@ function cleanName(str) {
         .trim();
 }
 
+function parseSpintax(text) {
+    if (!text) return text;
+    let match;
+    const regex = /{([^{}]*)}/g;
+    while ((match = regex.exec(text)) !== null) {
+        const options = match[1].split('|');
+        const randomOption = options[Math.floor(Math.random() * options.length)];
+        text = text.substring(0, match.index) + randomOption + text.substring(match.index + match[0].length);
+        regex.lastIndex = 0; // Reset index to search from beginning after replacement
+    }
+    return text;
+}
+
 function isNameMatch(profileName, targetName) {
     if (!profileName || !targetName) return false;
     const a = cleanName(profileName);
@@ -390,7 +403,9 @@ async function processSingleReel(cfg, targetPageName) {
         'Ô nhập bình luận', 3, 2
     );
     if (input) {
-        await typeHumanText(input, cfg.commentText);
+        const spunText = parseSpintax(cfg.commentText);
+        logMsg(`💬 Nội dung ngẫu nhiên (Spintax): "${spunText}"`);
+        await typeHumanText(input, spunText);
         await delay(1, 3);
     }
 

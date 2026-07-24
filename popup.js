@@ -47,11 +47,11 @@ document.getElementById('runMode').addEventListener('change', (e) => {
 
 document.getElementById('loopStrategy').addEventListener('change', (e) => {
     const delayGrp = document.getElementById('loopDelayGroup');
-    if (e.target.value === 'DELAY') {
-        delayGrp.style.display = 'block';
-    } else {
-        delayGrp.style.display = 'none';
-    }
+    const scheduleGrp = document.getElementById('scheduleTimeGroup');
+    
+    delayGrp.style.display = (e.target.value === 'DELAY') ? 'block' : 'none';
+    scheduleGrp.style.display = (e.target.value === 'SCHEDULE') ? 'block' : 'none';
+    
     chrome.storage.local.set({ 
         loopStrategy: e.target.value 
     });
@@ -63,14 +63,24 @@ document.getElementById('loopDelayMinutes').addEventListener('input', (e) => {
     });
 });
 
+document.getElementById('scheduleTimes').addEventListener('input', (e) => {
+    chrome.storage.local.set({ 
+        scheduleTimes: e.target.value 
+    });
+});
+
 // Phục hồi trạng thái select box khi mở popup
-chrome.storage.local.get(['loopStrategy', 'loopDelayMinutes'], (st) => {
+chrome.storage.local.get(['loopStrategy', 'loopDelayMinutes', 'scheduleTimes'], (st) => {
     if (st.loopStrategy) {
         document.getElementById('loopStrategy').value = st.loopStrategy;
         document.getElementById('loopDelayGroup').style.display = (st.loopStrategy === 'DELAY') ? 'block' : 'none';
+        document.getElementById('scheduleTimeGroup').style.display = (st.loopStrategy === 'SCHEDULE') ? 'block' : 'none';
     }
     if (st.loopDelayMinutes) {
         document.getElementById('loopDelayMinutes').value = st.loopDelayMinutes;
+    }
+    if (st.scheduleTimes) {
+        document.getElementById('scheduleTimes').value = st.scheduleTimes;
     }
 });
 

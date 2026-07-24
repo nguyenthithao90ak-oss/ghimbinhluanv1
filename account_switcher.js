@@ -1,5 +1,6 @@
-var delay = (ms) => {
+var delay = (minMs, maxMs = minMs) => {
     return new Promise((resolve, reject) => {
+        const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
         const sec = ms / 1000;
         let elapsed = 0;
         const interval = setInterval(() => {
@@ -60,23 +61,45 @@ function cleanName(str) {
         .trim();
 }
 
-// Hàm tính điểm khớp tên (càng cao càng chính xác)
+// Hàm tính điểm khớp tên (Cho phép sai chính tả - Typo tolerance)
 function nameMatchScore(a, b) {
     if (!a || !b) return 0;
     const cleanA = cleanName(a);
     const cleanB = cleanName(b);
     if (!cleanA || !cleanB) return 0;
+    
     // Khớp hoàn toàn: điểm cao nhất
     if (cleanA === cleanB) return 100;
-    // Khớp gần đúng: chỉ tính khi độ dài tương đồng >= 90%
+    
+    // Khớp bao hàm (chuỗi dài chứa chuỗi ngắn)
     const shorter = cleanA.length < cleanB.length ? cleanA : cleanB;
     const longer  = cleanA.length < cleanB.length ? cleanB : cleanA;
-    if (longer.includes(shorter)) {
-        const ratio = shorter.length / longer.length;
-        if (ratio >= 0.9) return 80; // Khớp rất gần (VD: có khoảng trắng thừa)
-        // Không đủ độ tương đồng → không tính là khớp
-        return 0;
+    if (longer.includes(shorter) && (shorter.length / longer.length >= 0.8)) {
+        return 80; 
     }
+
+    // Thuật toán Levenshtein Distance (Chấp nhận gõ sai 1-2 chữ)
+    // Ví dụ: traicauconam vs traicayconam (sai 1 ký tự y/u)
+    let matrix = [];
+    for (let i = 0; i <= cleanB.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= cleanA.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= cleanB.length; i++) {
+        for (let j = 1; j <= cleanA.length; j++) {
+            if (cleanB.charAt(i-1) === cleanA.charAt(j-1)) {
+                matrix[i][j] = matrix[i-1][j-1];
+            } else {
+                matrix[i][j] = Math.min(matrix[i-1][j-1] + 1, Math.min(matrix[i][j-1] + 1, matrix[i-1][j] + 1));
+            }
+        }
+    }
+    const dist = matrix[cleanB.length][cleanA.length];
+    const maxLen = Math.max(cleanA.length, cleanB.length);
+    
+    // Chuỗi dài thì cho phép sai nhiều hơn một tí
+    if (maxLen > 10 && dist <= 3) return 60;
+    if (maxLen > 5 && dist <= 2) return 70;
+    if (maxLen <= 5 && dist === 1) return 50;
+
     return 0;
 }
 
@@ -105,7 +128,7 @@ async function switchToAccount(targetPageName) {
     
     try {
         logMsg(`🚀 Đang mở danh sách tài khoản cho: "${targetPageName}"... (Timeout: 60s)`);
-        await delay(5000);
+        await delay(4000, 6000); // Đợi menu mờ hiện ra
 
         // BƯỚC 0: Nếu ở trang Home (m.facebook.com), bấm nút Menu 3 sọc (☰) ở góc trên bên phải để mở Menu
         if (!window.location.href.includes('/bookmarks/') && !window.location.href.includes('/menu/')) {
@@ -118,7 +141,7 @@ async function switchToAccount(targetPageName) {
             if (menuTopBtn) {
                 logMsg("👉 Đã thấy nút Menu 3 sọc (☰)! Đang bấm mở Menu...");
                 simulateClick(menuTopBtn);
-                await delay(3000);
+                await delay(2500, 4000); // Lướt và tìm trang
             }
         }
 
@@ -197,7 +220,7 @@ async function switchToAccount(targetPageName) {
                 chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
                 return;
             }
-            await delay(2000);
+            await delay(1800, 2500);
         }
 
         if (switchBtn) {
@@ -210,7 +233,7 @@ async function switchToAccount(targetPageName) {
         }
 
         // BƯỚC 2: Chờ Popup "Your Pages and profiles" mở ra
-        await delay(4000);
+        await delay(3500, 5000); // Chờ trang load xong sau khi đổi nick
         
         // Kiểm tra timeout trước khi vào vòng scroll dài
         if (isTimedOut()) {
@@ -268,7 +291,7 @@ async function switchToAccount(targetPageName) {
                     d.scrollTop += 300;
                 }
             });
-            await delay(1200);
+            await delay(1000, 1500);
         }
 
         if (foundElement) {
@@ -285,18 +308,21 @@ async function switchToAccount(targetPageName) {
             }
 
             // *** KIỂM TRA QUAN TRỌNG: NICK NÀY ĐÃ CÓ NÚT XANH (ĐÃ ĐƯỢC CHỌN SẴN) HAY CHƯA? ***
-            // Quét toàn bộ vùng chứa nick này để tìm dấu hiệu "đã chọn" (checked radio, aria-checked, input:checked, nút xanh)
             let isAlreadyActive = false;
+            
+            // Mở rộng vùng tìm kiếm ra toàn bộ "dòng" (row) chứa nick này, vì đôi khi nút xanh nằm ở sibling
+            let searchArea = clickableTarget;
+            if (clickableTarget.parentElement) searchArea = clickableTarget.parentElement;
+            if (clickableTarget.parentElement && clickableTarget.parentElement.parentElement) searchArea = clickableTarget.parentElement.parentElement;
 
             // Cách 1: Tìm input[type="radio"] bị checked
-            let searchArea = clickableTarget;
             let radioInput = searchArea.querySelector('input[type="radio"]');
             if (radioInput && radioInput.checked) {
                 isAlreadyActive = true;
             }
 
-            // Cách 2: Tìm [role="radio"][aria-checked="true"]
-            let radioRole = searchArea.querySelector('[role="radio"][aria-checked="true"]');
+            // Cách 2: Tìm [role="radio"][aria-checked="true"] hoặc [aria-selected="true"]
+            let radioRole = searchArea.querySelector('[role="radio"][aria-checked="true"], [aria-checked="true"], [aria-selected="true"]');
             if (radioRole) {
                 isAlreadyActive = true;
             }
@@ -312,12 +338,16 @@ async function switchToAccount(targetPageName) {
                 ancestor = ancestor.parentElement;
             }
 
-            // Cách 4: Kiểm tra SVG nút tròn xanh (filled circle) gần đó - có nghĩa là nút radio đã được chọn
-            const nearbyCircles = searchArea.querySelectorAll('svg, circle, i');
+            // Cách 4: Kiểm tra SVG nút tròn xanh (filled circle) gần đó
+            // Bắt màu #0866FF (Xanh FB mới), #1877f2 (Xanh FB cũ) hoặc RGB
+            const nearbyCircles = searchArea.querySelectorAll('svg, circle, i, path');
             for (let circle of nearbyCircles) {
-                const fill = circle.getAttribute('fill') || '';
+                const fill = (circle.getAttribute('fill') || '').toLowerCase();
+                const color = (circle.getAttribute('color') || '').toLowerCase();
                 const style = (circle.getAttribute('style') || '').toLowerCase();
-                if (fill.includes('#0866FF') || fill.includes('#1877f2') || style.includes('0866ff') || style.includes('1877f2')) {
+                if (fill.includes('#0866ff') || fill.includes('#1877f2') || 
+                    style.includes('0866ff') || style.includes('1877f2') ||
+                    color.includes('#0866ff') || color.includes('#1877f2')) {
                     isAlreadyActive = true;
                     break;
                 }
@@ -334,9 +364,23 @@ async function switchToAccount(targetPageName) {
 
             // Nếu chưa active -> Bấm đổi nick
             logMsg(`🎯 Bấm chọn đổi sang Nick "${targetPageName}"...`);
-            await delay(1000);
+            await delay(800, 1500);
             simulateClick(clickableTarget);
             logMsg("✅ Đã bấm chọn nick mới! Đợi Facebook đổi tài khoản...");
+            
+            // --- CƠ CHẾ CHỐNG KẸT (FALLBACK TỐI THƯỢNG) ---
+            // Đôi khi Facebook cập nhật mã màu khiến thuật toán soi nút xanh bị xịt.
+            // Nếu nick ĐÃ ACTIVE mà ta vẫn click vào, Facebook sẽ KHÔNG tải lại trang (URL không đổi).
+            // Ta chờ 4.5 giây, nếu trang vẫn không chuyển đi đâu thì 99% là nick này đã active từ trước!
+            await delay(4500);
+            if (window.location.href.includes('/bookmarks/')) {
+                 logMsg(`✅ Nick "${targetPageName}" CÓ THỂ ĐÃ ACTIVE TỪ TRƯỚC (Vì click xong trang không đổi)! Ép quay về Profile luôn để chống kẹt!`);
+                 chrome.runtime.sendMessage({
+                     action: "alreadyTargetAccount",
+                     pageName: targetPageName
+                 });
+                 return;
+            }
         } else {
             logMsg(`❌ Không tìm thấy Nick "${targetPageName}" trong danh sách.`);
             chrome.runtime.sendMessage({
@@ -356,8 +400,11 @@ async function switchToAccount(targetPageName) {
     }
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "doSwitchAccount") {
-        switchToAccount(request.targetPageName);
-    }
-});
+if (!window.__switcherListenerAdded) {
+    window.__switcherListenerAdded = true;
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "doSwitchAccount") {
+            switchToAccount(request.targetPageName);
+        }
+    });
+}

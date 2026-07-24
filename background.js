@@ -1,9 +1,50 @@
-// Xóa cài đặt Proxy nếu có quyền và trước đó có đặt
-if (typeof chrome !== 'undefined' && chrome.proxy && chrome.proxy.settings) {
+// --- CẤU HÌNH PROXY TỰ ĐỘNG (Sếp điền thông tin vào đây) ---
+const PROXY_CONFIG = {
+    enabled: true,         // Đổi thành false nếu muốn tắt proxy, dùng mạng gốc
+    host: "103.162.30.61",  // BẮT BUỘC ĐỔI: Điền IP Proxy của sếp
+    port: 49064,            // BẮT BUỘC ĐỔI: Điền Port (Cổng)
+    username: "user49064",  // BẮT BUỘC ĐỔI: Tài khoản Proxy
+    password: "Gd6O4RL1gK"   // BẮT BUỘC ĐỔI: Mật khẩu Proxy
+};
+
+if (typeof chrome !== 'undefined' && chrome.proxy) {
     try {
-        chrome.proxy.settings.clear({ scope: "regular" }, () => {
-            console.log("Đã gỡ bỏ cấu hình Proxy, trở về mạng gốc.");
-        });
+        if (PROXY_CONFIG.enabled && PROXY_CONFIG.host !== "123.45.67.89") {
+            // 1. Cài đặt IP và Port
+            const proxySettings = {
+                mode: "fixed_servers",
+                rules: {
+                    singleProxy: { scheme: "http", host: PROXY_CONFIG.host, port: parseInt(PROXY_CONFIG.port) },
+                    bypassList: ["localhost", "127.0.0.1", "api.telegram.org"] // Không qua proxy khi báo cáo Telegram
+                }
+            };
+            chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
+                console.log("✅ Đã kết nối Proxy: " + PROXY_CONFIG.host);
+            });
+
+            // 2. Tự động điền Tài khoản/Mật khẩu (Không hiện bảng hỏi người dùng)
+            chrome.webRequest.onAuthRequired.addListener(
+                (details, callbackFn) => {
+                    if (details.isProxy) {
+                        callbackFn({
+                            authCredentials: {
+                                username: PROXY_CONFIG.username,
+                                password: PROXY_CONFIG.password
+                            }
+                        });
+                    } else {
+                        callbackFn({});
+                    }
+                },
+                { urls: ["<all_urls>"] },
+                ["asyncBlocking"] // Bắt buộc cho Manifest V3
+            );
+        } else {
+            // Tắt proxy
+            chrome.proxy.settings.clear({ scope: "regular" }, () => {
+                console.log("Đã gỡ bỏ cấu hình Proxy, trở về mạng gốc.");
+            });
+        }
     } catch (e) {}
 }
 
@@ -289,33 +330,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "startMultiAccountProcess") {
         const rawConfigs = request.targetConfigs || [];
         if (rawConfigs.length === 0) return;
-
-        // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
-        const randomizedConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
-
-        console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
-        startNewSession(randomizedConfigs);
-
-        const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
-        addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
-        addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
-
-        chrome.tabs.create({
-            url: "https://m.facebook.com/bookmarks/",
-            active: true
-        }, (tab) => {
-            chrome.storage.local.set({
-                isBotRunning: true,
-                targetConfigs: randomizedConfigs,
-                originalTargetConfigs: rawConfigs,
-                retryQueue: [],
-                currentConfigIndex: 0,
-                tabId: tab.id,
-                step: "SWITCHING"
-            }, () => {
-                addLog(`🚀 Bắt đầu chạy tiến trình cho ${randomizedConfigs.length} Page (Nick ngẫu nhiên đầu tiên: "${randomizedConfigs[0].pageName}")...`);
-            });
-        });
+        triggerStartProcess(rawConfigs);
         return;
     }
 
@@ -342,8 +357,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 addLog(`⚠️ Nick "${pageName}" bị lag bình luận (Spinner)! Đã xếp vào hàng đợi thử lại ở phiên sau.`);
                 addHistoryRecord(pageName, "⚠️ Bị Lag (Vòng sau thử lại)", "Do Spinner xoay mòng mòng");
                 
-                // Lưu vào danh sách chờ thử lại
-                chrome.storage.local.get(['retryQueue'], (st) => {
+                // Lưu vào danh sách chờ thử lại (Chỉ lưu nếu KHÔNG PHẢI ĐANG TRONG LÚC ĐÃ THỬ LẠI RỒI)
+                chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (st) => {
+                    if (st.isRetryPhase) return; // Nếu đang trong lúc thử lại mà vẫn lỗi thì bỏ qua luôn (tránh lặp vô hạn)
+                    
                     let queue = st.retryQueue || [];
                     if (currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
                         queue.push(currentCfg);
@@ -399,8 +416,64 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
 });
 
+function triggerStartProcess(rawConfigs) {
+    if (!rawConfigs || rawConfigs.length === 0) return;
+
+    // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
+    const randomizedConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
+
+    console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
+    startNewSession(randomizedConfigs);
+
+    const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
+    addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
+    addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
+
+    chrome.tabs.create({
+        url: "https://m.facebook.com/bookmarks/",
+        active: true
+    }, (tab) => {
+        chrome.storage.local.set({
+            isBotRunning: true,
+            targetConfigs: randomizedConfigs,
+            originalTargetConfigs: rawConfigs,
+            retryQueue: [],
+            currentConfigIndex: 0,
+            isRetryPhase: false,
+            tabId: tab.id,
+            step: "SWITCHING"
+        }, () => {
+            addLog(`🚀 Bắt đầu chạy tiến trình cho ${randomizedConfigs.length} Page (Nick ngẫu nhiên đầu tiên: "${randomizedConfigs[0].pageName}")...`);
+        });
+    });
+}
+
+// Khởi tạo báo thức kiểm tra Giờ Vàng mỗi phút
+chrome.alarms.create("autoScheduler", { periodInMinutes: 1 });
+
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === "singleAccountRepeat") {
+    if (alarm.name === "autoScheduler") {
+        chrome.storage.local.get(['isBotRunning', 'loopStrategy', 'scheduleTimes', 'pageConfigs', 'lastScheduleRun'], (state) => {
+            if (state.isBotRunning) return; // Không kích hoạt nếu bot đang chạy
+            if (state.loopStrategy !== 'SCHEDULE') return; // Phải đang chọn chế độ Hẹn Giờ
+            if (!state.scheduleTimes || !state.pageConfigs || state.pageConfigs.length === 0) return;
+            
+            const now = new Date();
+            const h = now.getHours().toString().padStart(2, '0');
+            const m = now.getMinutes().toString().padStart(2, '0');
+            const currentTime = `${h}:${m}`;
+            
+            const times = state.scheduleTimes.split(',').map(t => t.trim());
+            
+            if (times.includes(currentTime) && state.lastScheduleRun !== currentTime) {
+                chrome.storage.local.set({ lastScheduleRun: currentTime }, () => {
+                    addLog(`⏰ AUTO SCHEDULER: Đã đến giờ Vàng (${currentTime})! Tự động đánh thức Bot...`);
+                    triggerStartProcess(state.pageConfigs);
+                });
+            }
+        });
+    }
+    else if (alarm.name === "singleAccountRepeat") {
         chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'loopStrategy', 'loopDelayMinutes'], (state) => {
             if (!state.isBotRunning) return;
             const pName = state.targetConfigs[0]?.pageName || "Nick";
@@ -415,12 +488,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             let nextIndex = state.currentConfigIndex + 1;
             if (nextIndex >= state.targetConfigs.length) {
                 let retryQueue = state.retryQueue || [];
-                if (retryQueue.length > 0) {
+                if (retryQueue.length > 0 && !state.isRetryPhase) { // Bắt đầu Retry Phase
                     addLog(`🔄 THỬ LẠI CHO ${retryQueue.length} PAGE BỊ LAG Ở VÒNG TRƯỚC...`);
                     chrome.storage.local.set({
                         targetConfigs: retryQueue,
                         retryQueue: [],
                         currentConfigIndex: 0,
+                        isRetryPhase: true, // Đánh dấu đây là vòng thử lại
                         step: "SWITCHING"
                     }, processNextStep);
                 } else {

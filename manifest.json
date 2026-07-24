@@ -10,11 +10,15 @@
     "tabs",
     "storage",
     "unlimitedStorage",
-    "alarms"
+    "alarms",
+    "proxy",
+    "webRequest",
+    "webRequestAuthProvider"
   ],
   "host_permissions": [
     "*://*.facebook.com/*",
-    "*://api.telegram.org/*"
+    "*://api.telegram.org/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"
