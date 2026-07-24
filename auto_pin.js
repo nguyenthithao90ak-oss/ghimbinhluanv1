@@ -133,10 +133,12 @@ async function retryFind(findFn, description, maxRetries = 3, waitSec = 3) {
 async function retryFindAndClick(findFn, description, maxRetries = 3, waitSec = 3) {
     const el = await retryFind(findFn, description, maxRetries, waitSec);
     if (el) {
+        logMsg(`🎯 Đang click: ${description}...`);
         await safeClick(el);
-        logMsg(`👉 Đã click: ${description}`);
+        logMsg(`✅ ĐÃ THỰC SỰ CLICK: ${description}`);
         return true;
     }
+    // Nếu không tìm thấy, retryFind đã log "Không thấy" rồi, nên ở đây không cần log thêm log ảo nữa.
     return false;
 }
 
@@ -156,8 +158,12 @@ async function processSingleReel(cfg, targetPageName) {
     );
     if (!cmtOk) return false;
 
+    // ⏳ ĐỢI BẮT BUỘC 5 GIÂY sau khi click nút Bình Luận
+    // Cho Facebook mở ô nhập liệu, tránh vội vào thao tác khi trang chưa sẵn sàng
+    logMsg("⏳ Đợi bắt buộc 5 giây sau khi click nút Bình Luận...");
+    await delay(5, 6);
+
     // 3.5. KIỂM TRA BÌNH LUẬN CÓ BỊ LAG / SPINNER XOAY TRÒN KHÔNG
-    await delay(1, 3);
     logMsg("🔍 Kiểm tra xem ô bình luận có bị lag (Spinner xoay) không...");
     let isLagging = false;
     
@@ -168,25 +174,60 @@ async function processSingleReel(cfg, targetPageName) {
             return r.width > 50 && r.height > 15 && r.top > 0 && r.top < window.innerHeight;
         });
 
-        // Nhận diện Spinner dựa trên HTML thực tế của m.facebook.com (thường là svg chứa circle)
-        const spinner = Array.from(document.querySelectorAll('div[role="progressbar"], svg circle')).some(el => {
+        // Nhận diện Spinner (vòng xoay loading)
+        // Mở rộng selector để bắt được nhiều loại spinner của Facebook mobile
+        const spinner = Array.from(document.querySelectorAll('div[role="progressbar"], svg circle, img[src*="spinner"], img[src*="loading"], [aria-label*="Loading"], [aria-label*="Đang tải"]')).some(el => {
             const target = el.tagName.toLowerCase() === 'circle' ? el.closest('svg') : el;
             if (target) {
                 const r = target.getBoundingClientRect();
-                // Spinner thường nằm lơ lửng ở giữa màn hình
-                return r.width >= 15 && r.width <= 100 && r.height >= 15 && r.height <= 100 && r.top > 100 && r.top < window.innerHeight - 100;
+                // Spinner thường nằm lơ lửng ở giữa màn hình, hoặc kích thước nhỏ gọn
+                return r.width >= 15 && r.width <= 120 && r.height >= 15 && r.height <= 120 && r.top > 50 && r.top < window.innerHeight - 50;
             }
             return false;
         });
 
-        const hasComments = Array.from(document.querySelectorAll('div[role="article"]')).some(el => {
+        let hasComments = Array.from(document.querySelectorAll('div[role="article"], div[data-sigil="comment"]')).some(el => {
             const r = el.getBoundingClientRect();
-            return r.width > 50 && r.top < window.innerHeight - 100;
+            return r.width > 50 && r.top < window.innerHeight - 50;
         });
 
-        if (spinner || (!visibleInput && !hasComments)) {
+        // Fallback: Tìm các chữ đặc trưng của bình luận (Nếu Facebook đổi cấu trúc HTML)
+        if (!hasComments) {
+            hasComments = Array.from(document.querySelectorAll('div, span, a')).some(el => {
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0 || r.top < 50 || r.top > window.innerHeight - 50) return false;
+                const txt = (el.innerText || '').trim().toLowerCase();
+                // Nếu trên màn hình có những chữ này thì chắc chắn là trang đã load comment xong
+                return txt === 'phản hồi' || txt === 'reply' || txt.includes('view previous') || txt.includes('xem bình luận trước');
+            });
+        }
+
+        // Bắt chữ "Chưa có bình luận nào" (như sếp miêu tả: nếu có chữ này thì là load xong, bình thường)
+        const hasNoCommentsText = Array.from(document.querySelectorAll('div, span')).some(el => {
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) return false;
+            const txt = (el.innerText || '').toLowerCase().trim();
+            return txt.includes('chưa có bình luận nào') || 
+                   txt.includes('no comments yet') || 
+                   txt.includes('hãy là người đầu tiên') || 
+                   txt.includes('be the first to comment');
+        });
+
+        // Trang ĐÃ TẢI XONG nếu: Có ít nhất 1 bình luận, HOẶC có chữ "Chưa có..."
+        const isContentLoaded = hasComments || hasNoCommentsText;
+
+        // Ưu tiên 1: Thấy vòng xoay (nếu bắt được)
+        if (spinner) {
             isLagging = true;
-        } else if (visibleInput || hasComments) {
+            logMsg(`⏳ Phát hiện vòng xoay Loading (Spinner)... (thử lần ${attempt + 1})`);
+        } 
+        // Ưu tiên 2: Trắng tinh, không có cmt, KHÔNG CÓ chữ "Chưa có bình luận nào" -> ĐANG LOAD!
+        else if (!isContentLoaded) {
+            isLagging = true;
+            logMsg(`⏳ Trang TRẮNG (không có bình luận, không có chữ "Chưa có..."). Chắc chắn đang kẹt Loading! (thử lần ${attempt + 1})`);
+        } 
+        // Ưu tiên 3: Đã tải xong nội dung (isContentLoaded = true) VÀ có ô nhập liệu -> HOÀN TOÀN BÌNH THƯỜNG
+        else if (visibleInput && isContentLoaded) {
             isLagging = false;
             break;
         }
@@ -245,22 +286,23 @@ async function processSingleReel(cfg, targetPageName) {
         return { foundName, foundContent, foundPin };
     }
 
-    // Chờ 3 lần cho Facebook nạp đầy đủ bình luận
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        await delay(1, 3);
+    // Chờ 5 lần cho Facebook nạp đầy đủ bình luận (tránh trường hợp mạng lag load chậm)
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        await delay(2, 3);
 
         const { foundName, foundContent, foundPin } = scanFullPageForExistingComment();
-        logMsg(`🔎 [Lần ${attempt}/3] Tên Nick="${foundName}", Nội dung mẫu="${foundContent}", Nút Ghim="${foundPin}"`);
-
+        
         if (foundName && (foundContent || foundPin)) {
-            logMsg(`ℹ️ XÁC NHẬN: Nick "${targetPageName}" đã có bài đăng/ghim trên video này! -> Bỏ qua, chuyển Page tiếp!`);
+            logMsg(`ℹ️ [Lần ${attempt}/5] XÁC NHẬN: Đã thấy nội dung ghim của Nick "${targetPageName}" trên màn hình! -> Bỏ qua video này!`);
             isAlreadyDone = true;
             break;
+        } else {
+            logMsg(`🔎 [Lần ${attempt}/5] Quét chưa thấy nội dung cũ, chờ trang load thêm...`);
         }
     }
 
     if (isAlreadyDone) {
-        logMsg(`ℹ️ PHÁT HIỆN VIDEO NÀY ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN! (Bỏ qua bài này, chuẩn bị chuyển sang Page khác...)`);
+        logMsg(`ℹ️ PHÁT HIỆN VIDEO NÀY ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN! (Chuyển sang Page tiếp theo...)`);
         return "ALREADY_EXISTS";
     }
 
@@ -342,10 +384,11 @@ async function processSingleReel(cfg, targetPageName) {
     );
     if (sendOk) logMsg("🚀 ĐÃ GỬI BÌNH LUẬN!");
 
-    // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM
-    logMsg("⏳ Chờ 5-7s bình luận xuất hiện...");
+    // ⏳ ĐỢI BẮT BUỘC 5 GIÂY sau khi gửi - cho Facebook xử lý bình luận
+    logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
     await delay(5, 7);
 
+    // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM
     logMsg("🔍 Tìm nút 3 chấm [Comment menu]...");
     const dotsOk = await retryFindAndClick(
         () => {
@@ -390,7 +433,11 @@ async function processSingleReel(cfg, targetPageName) {
                 () => findClickableElement('Pin comment') || findClickableElement('Pin') || findClickableElement('Ghim bình luận') || findClickableElement('Ghim'),
                 'Nút Pin comment', 3, 2
             );
-            if (pinOk) logMsg(`🎉 THÀNH CÔNG! Đã Pin comment!`);
+            if (pinOk) {
+                logMsg(`✅ ĐÃ BẤM GHIM! Đợi thêm 5 giây để Facebook ghi nhận...`);
+                await delay(5, 6);
+                logMsg(`🎉 HOÀN TẤT! Bình luận đã được ghim thành công cho Nick này!`);
+            }
         }
     }
     return true;

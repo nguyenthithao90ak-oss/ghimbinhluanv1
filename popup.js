@@ -407,6 +407,17 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             targetConfigs = configs.filter(c => c.pageName === selectedName);
         }
 
+        // 🎲 SHUFFLE NGAY TẠI ĐÂY trước khi gửi lên background
+        // Đảm bảo mỗi lần bấm Start thứ tự nick LUÔN LUÔN khác nhau
+        if (targetConfigs.length > 1) {
+            const shuffled = [...targetConfigs];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            targetConfigs = shuffled;
+        }
+
         chrome.storage.local.set({ 
             isBotRunning: true,
             botLogs: [`[${new Date().toLocaleTimeString()}] 🚀 Bắt đầu chạy tiến trình...`] 

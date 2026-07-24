@@ -439,6 +439,59 @@ document.getElementById('btnDashImport').addEventListener('click', () => {
     document.getElementById('dashBackupFileInput').click();
 });
 
+// ==========================================
+// TELEGRAM BOT POLLING (Chạy trên Dashboard để không bị sleep)
+// ==========================================
+setInterval(() => {
+    chrome.storage.local.get(['teleBotToken', 'teleLastUpdateId', 'sessionHistory'], (res) => {
+        if (!res.teleBotToken) return;
+        
+        let offset = res.teleLastUpdateId || 0;
+        fetch(`https://api.telegram.org/bot${res.teleBotToken}/getUpdates?offset=${offset}&timeout=5`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok && data.result.length > 0) {
+                    let nextOffset = offset;
+                    data.result.forEach(update => {
+                        nextOffset = update.update_id + 1;
+                        if (update.message && update.message.text) {
+                            const text = update.message.text.toLowerCase();
+                            if (text.includes('hon hac thao') || text.includes('/check') || text.includes('báo cáo') || text.includes('bao cao') || text.includes('hỏi hệ thống') || text.includes('kiểm tra')) {
+                                
+                                const sessions = res.sessionHistory || [];
+                                let replyText = "❌ Hệ thống chưa chạy phiên nào hoặc chưa có dữ liệu báo cáo gần nhất!";
+                                
+                                if (sessions.length > 0) {
+                                    const currentSess = sessions[0];
+                                    let successCount = 0;
+                                    let failCount = 0;
+                                    currentSess.items.forEach(item => {
+                                        if (item.status.includes('✅') || item.status.includes('ℹ️')) successCount++;
+                                        else failCount++;
+                                    });
+                                    replyText = `🤖 BÁO CÁO NHANH TỪ AUTO BOT:\n`;
+                                    replyText += `Phiên chạy lúc: ${currentSess.startTime}\n`;
+                                    replyText += `Tổng số nick đã quét: ${currentSess.items.length}\n`;
+                                    replyText += `✅ Thành công: ${successCount} nick\n`;
+                                    replyText += `⚠️ Lỗi/Lag: ${failCount} nick\n\n`;
+                                    replyText += `(Để xem chi tiết, hãy chờ hệ thống chạy xong vòng hiện tại nhé sếp!)`;
+                                }
+
+                                fetch(`https://api.telegram.org/bot${res.teleBotToken}/sendMessage`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ chat_id: update.message.chat.id, text: replyText })
+                                }).catch(e => {});
+                            }
+                        }
+                    });
+                    chrome.storage.local.set({ teleLastUpdateId: nextOffset });
+                }
+            })
+            .catch(e => {});
+    });
+}, 5000);
+
 document.getElementById('dashBackupFileInput').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;

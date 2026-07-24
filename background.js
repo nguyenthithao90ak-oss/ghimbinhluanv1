@@ -7,6 +7,13 @@ if (typeof chrome !== 'undefined' && chrome.proxy && chrome.proxy.settings) {
     } catch (e) {}
 }
 
+// ĐĂNG KÝ ALARM TELEGRAM POLL (thay setInterval để không bị Chrome sleep)
+chrome.alarms.get('telegramPoll', (existing) => {
+    if (!existing) {
+        chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 }); // Poll mỗi 15 giây
+    }
+});
+
 function shuffleArray(array) {
     if (!array || !Array.isArray(array)) return [];
     let arr = [...array];
@@ -98,15 +105,18 @@ function printSessionReport() {
         
         addLog(reportStr);
 
-        // Gửi qua Telegram nếu có cấu hình
-        if (res.teleBotToken && res.teleChatId) {
+        // Gửi qua Telegram (Tự động cập nhật báo cáo tổng kết)
+        const botToken = (res.teleBotToken && res.teleBotToken.trim()) ? res.teleBotToken.trim() : '8678529806:AAHwNim4fRvpg9GbLZytVK6glrJiL8Zvl8o';
+        const chatId = (res.teleChatId && res.teleChatId.trim()) ? res.teleChatId.trim() : '6139045056';
+
+        if (botToken && chatId) {
             const teleMsg = reportStr.replace(/=========/g, '').trim(); // Format lại cho đẹp trên điện thoại
-            const teleUrl = `https://api.telegram.org/bot${res.teleBotToken}/sendMessage`;
+            const teleUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
             fetch(teleUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    chat_id: res.teleChatId,
+                    chat_id: chatId,
                     text: teleMsg
                 })
             }).then(response => {
@@ -170,6 +180,61 @@ function addHistoryRecord(pageName, status, details) {
             runHistory: flatHistory,
             currentSessionId: currentId 
         });
+
+        // 📱 BẮN TIN TELEGRAM REALTIME mỗi khi 1 nick hoàn thành
+        chrome.storage.local.get(['teleBotToken', 'teleChatId', 'targetConfigs', 'currentConfigIndex', 'retryQueue'], (teleRes) => {
+            // Dùng token từ storage, hoặc fallback token cứng nếu chưa lưu
+            const botToken = (teleRes.teleBotToken && teleRes.teleBotToken.trim()) 
+                             ? teleRes.teleBotToken.trim() 
+                             : '8678529806:AAHwNim4fRvpg9GbLZytVK6glrJiL8Zvl8o';
+            const chatId   = (teleRes.teleChatId && teleRes.teleChatId.trim()) 
+                             ? teleRes.teleChatId.trim() 
+                             : '6139045056';
+
+            const isAlreadyPinned = status.includes('ℹ️') || status.toLowerCase().includes('sẵn');
+            const isLagged        = status.includes('⚠️') || status.toLowerCase().includes('lag');
+            const isSuccess       = status.includes('✅');
+
+            let msg;
+            if (isAlreadyPinned) {
+                msg = `ℹ️ TK "${pageName}" đã có bình luận ghim từ TRƯỚC → Bot bỏ qua`;
+            } else if (isLagged) {
+                msg = `⚠️ TK "${pageName}" bị LAG/LỖI → Xếp vào hàng đợi thử lại cuối vòng`;
+            } else if (isSuccess) {
+                msg = `✅ Đã ghim bình luận cho TK "${pageName}" lúc ${timeStr}`;
+            } else {
+                return;
+            }
+
+            // --- TỰ ĐỘNG CẬP NHẬT TIẾN ĐỘ VÀO TIN NHẮN (THAY THẾ CHO /CHECK) ---
+            const configs = teleRes.targetConfigs || [];
+            const currentIdx = teleRes.currentConfigIndex || 0;
+            const retryQueue = teleRes.retryQueue || [];
+            const remaining = Math.max(0, configs.length - currentIdx - 1);
+            
+            msg += `\n---`;
+            msg += `\n📋 Còn lại: ${remaining} nick trong vòng này`;
+            if (retryQueue.length > 0) {
+                msg += `\n🔄 Đang xếp hàng thử lại: ${retryQueue.length} nick`;
+            }
+
+            console.log(`[TELEGRAM REALTIME] Gửi tin: ${msg}`);
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                body: JSON.stringify({ chat_id: chatId, text: msg })
+            }).then(r => r.json()).then(result => {
+                if (result.ok) {
+                    console.log(`[TELEGRAM REALTIME] \u2705 G\u1eedi th\u00e0nh c\u00f4ng: ${msg}`);
+                    addLog(`\ud83d\udcf1 Telegram: ${msg}`);
+                } else {
+                    console.error(`[TELEGRAM REALTIME] \u274c L\u1ed7i: ${JSON.stringify(result)}`);
+                    addLog(`\ud83d\udcf1 Telegram l\u1ed7i: ${result.description}`);
+                }
+            }).catch(err => {
+                console.error(`[TELEGRAM REALTIME] \u274c K\u1ebft n\u1ed1i th\u1ea5t b\u1ea1i: ${err.message}`);
+            });
+        });
     });
 }
 
@@ -212,7 +277,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "stopBotProcess") {
-        chrome.alarms.clearAll();
+        chrome.alarms.clearAll(() => {
+            chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
+        });
         chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
         addLog("🛑 ĐÃ DỪNG LẠI HOÀN TOÀN TẤT CẢ TÁC VỤ & HẸN GIỜ BOT!");
         console.log("🛑 Dừng tiến trình BOT");
@@ -290,6 +357,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const currentCfg = state.targetConfigs[state.currentConfigIndex];
             const pName = currentCfg?.pageName || "Nick";
 
+            // ✅ HỦY WATCHDOG ngay khi nick hoàn thành bình thường
+            chrome.alarms.clear('nickSessionTimeout');
+
             if (request.alreadyExisted) {
                 addLog(`ℹ️ Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
                 addHistoryRecord(pName, "ℹ️ Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
@@ -307,7 +377,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         addLog(`🎉 HOÀN TẤT CHẠY 1 LẦN CHO "${pName}" VÀ TỰ ĐỘNG DỪNG LẠI!`);
                         printSessionReport();
                         chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
-                        chrome.alarms.clearAll();
+                        chrome.alarms.clearAll(() => {
+                            chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
+                        });
                     } else if (strat === 'CONTINUOUS') {
                         addLog(`⏳ CHẾ ĐỘ LIÊN TỤC: Nghỉ 30s rồi tự động lặp lại cho "${pName}"...`);
                         printSessionReport();
@@ -362,7 +434,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                             addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ ĐỘNG DỪNG LẠI!`);
                             printSessionReport();
                             chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
-                            chrome.alarms.clearAll();
+                            chrome.alarms.clearAll(() => {
+                                chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
+                            });
                         } else if (strat === 'CONTINUOUS') {
                             addLog(`🎉 HOÀN THÀNH 1 VÒNG ${origConfigs.length} PAGE! Chế độ Liên Tục: Nghỉ 45 giây rồi lặp lại VÒNG MỚI...`);
                             printSessionReport();
@@ -400,6 +474,119 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             }, processNextStep);
         });
     }
+    else if (alarm.name === 'telegramPoll') {
+        chrome.storage.local.get(['teleBotToken', 'teleChatId', 'teleLastUpdateId', 'sessionHistory', 'isBotRunning', 'targetConfigs', 'currentConfigIndex', 'retryQueue'], (res) => {
+            // LUÔN dùng fallback token cứng nếu storage chưa có
+            const botToken = (res.teleBotToken && res.teleBotToken.trim()) ? res.teleBotToken.trim() : '8678529806:AAHwNim4fRvpg9GbLZytVK6glrJiL8Zvl8o';
+            const offset = res.teleLastUpdateId || 0;
+
+            fetch(`https://api.telegram.org/bot${botToken}/getUpdates?offset=${offset}&timeout=5`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.ok || data.result.length === 0) return;
+                    let nextOffset = offset;
+                    data.result.forEach(update => {
+                        nextOffset = update.update_id + 1;
+                        if (!update.message || !update.message.text) return;
+                        const text = update.message.text.toLowerCase();
+                        const replyTo = update.message.chat.id;
+
+                        if (text.includes('hon hac thao') || text.includes('/check') || text.includes('bao cao') || text.includes('báo cáo') || text.includes('kiểm tra')) {
+                            const sessions = res.sessionHistory || [];
+                            const retryQueue = res.retryQueue || [];
+                            const configs = res.targetConfigs || [];
+                            const currentIdx = res.currentConfigIndex || 0;
+                            const isRunning = res.isBotRunning;
+                            const currentNick = (isRunning && configs[currentIdx]) ? configs[currentIdx].pageName : null;
+
+                            let reply = '';
+
+                            // Trạng thái bot đang chạy
+                            if (isRunning && currentNick) {
+                                reply += `🟢 BOT ĐANG CHẠY: "${currentNick}"\n`;
+                                reply += `📋 Còn lại: ${configs.length - currentIdx - 1} nick trong vòng này\n`;
+                            } else {
+                                reply += `🔴 BOT ĐANG DỪNG\n`;
+                            }
+
+                            // Hàng đợi retry
+                            if (retryQueue.length > 0) {
+                                reply += `🔄 Hàng đợi thử lại: ${retryQueue.map(q => q.pageName).join(', ')}\n`;
+                            }
+
+                            reply += `\n`;
+
+                            // Báo cáo phiên
+                            if (sessions.length === 0) {
+                                reply += '📊 Chưa có dữ liệu phiên chạy!';
+                            } else {
+                                const s = sessions[0];
+                                let ok = 0, fail = 0, timeout = 0;
+                                (s.items || []).forEach(it => {
+                                    if (it.status.includes('✅') || it.status.includes('ℹ️')) ok++;
+                                    else if (it.status.includes('Timeout')) timeout++;
+                                    else fail++;
+                                });
+                                reply += `📊 PHIÊN GẦN NHẤT (${s.startTime}):\n`
+                                    + `✅ Ghim thành công: ${ok} nick\n`
+                                    + `⏰ Timeout 5ph: ${timeout} nick\n`
+                                    + `⚠️ Lỗi/Lag: ${fail} nick\n`
+                                    + `📌 Tổng đã xử lý: ${(s.items||[]).length}/${s.totalPages || '?'} nick\n`
+                                    + `\n(Gõ /check bất cứ lúc nào để cập nhật sếp!)`;
+                            }
+
+                            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                                body: JSON.stringify({ chat_id: replyTo, text: reply })
+                            }).catch(() => {});
+                        }
+                    });
+                    chrome.storage.local.set({ teleLastUpdateId: nextOffset });
+                })
+                .catch(() => {});
+        });
+    }
+
+    else if (alarm.name === 'nickSessionTimeout') {
+        // Nick chạy quá 5 phút - có thể bị click nhầm hoặc kẹt đâu đó
+        chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'currentConfigIndex', 'tabId'], (st) => {
+            if (!st.isBotRunning) return;
+            const currentCfg = st.targetConfigs && st.targetConfigs[st.currentConfigIndex];
+            const pageName = currentCfg?.pageName || 'Nick không xác định';
+
+            addLog(`⏰ WATCHDOG: Nick "${pageName}" chạy QUÁ 5 PHÚT không xong! Có thể bị kẹt/click nhầm. Tự động chuyển sang Nick tiếp theo...`);
+
+            // Báo Telegram
+            const botToken = '8678529806:AAHwNim4fRvpg9GbLZytVK6glrJiL8Zvl8o';
+            const chatId   = '6139045056';
+            const msg = `⏰ TK "${pageName}" chạy quá 5 phút không xong (có thể bị kẹt) → Bot tự thoát & thử lại sau`;
+            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                body: JSON.stringify({ chat_id: chatId, text: msg })
+            }).catch(() => {});
+
+            // Xử lý giống nick bị lag: xếp vào retry queue và chuyển sang nick tiếp
+            addHistoryRecord(pageName, '⚠️ Bị Timeout (Watchdog 5phút)', 'Chạy quá 5 phút không xong');
+
+            if (st.targetConfigs.length === 1) {
+                addLog(`⏰ Chế độ 1 Nick: Nghỉ 30s rồi lặp lại...`);
+                chrome.alarms.create('singleAccountRepeat', { delayInMinutes: 0.5 });
+            } else {
+                // Xếp vào retry queue
+                chrome.storage.local.get(['retryQueue'], (rq) => {
+                    let queue = rq.retryQueue || [];
+                    if (currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
+                        queue.push(currentCfg);
+                        chrome.storage.local.set({ retryQueue: queue });
+                    }
+                });
+                // Chuyển sang nick tiếp
+                chrome.storage.local.set({ step: 'SWITCHING' }, processNextStep);
+            }
+        });
+    }
 });
 
 chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
@@ -413,6 +600,11 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
             setTimeout(() => {
                 const config = state.targetConfigs[state.currentConfigIndex];
                 addLog(`🎯 Inject auto_pin.js cho Page "${config.pageName}"...`);
+                // ⏰ ĐẶT WATCHDOG 5 PHÚT: nếu nick không xong trong 5 phút sẽ tự động bỏ qua
+                chrome.alarms.clear('nickSessionTimeout', () => {
+                    chrome.alarms.create('nickSessionTimeout', { delayInMinutes: 5 });
+                    addLog(`⏱️ Watchdog 5 phút bắt đầu đếm cho Nick "${config.pageName}"`);
+                });
                 chrome.scripting.executeScript({
                     target: { tabId: tId },
                     files: ['auto_pin.js']
@@ -426,6 +618,11 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
             setTimeout(() => {
                 const config = state.targetConfigs[state.currentConfigIndex];
                 addLog(`🎯 Inject auto_pin.js cho Page "${config.pageName}"...`);
+                // ⏰ ĐẶT WATCHDOG 5 PHÚT: nếu nick không xong trong 5 phút sẽ tự động bỏ qua
+                chrome.alarms.clear('nickSessionTimeout', () => {
+                    chrome.alarms.create('nickSessionTimeout', { delayInMinutes: 5 });
+                    addLog(`⏱️ Watchdog 5 phút bắt đầu đếm cho Nick "${config.pageName}"`);
+                });
                 chrome.scripting.executeScript({
                     target: { tabId: tId },
                     files: ['auto_pin.js']

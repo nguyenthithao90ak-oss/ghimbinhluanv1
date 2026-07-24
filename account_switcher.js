@@ -60,17 +60,51 @@ function cleanName(str) {
         .trim();
 }
 
-function isNameMatch(a, b) {
-    if (!a || !b) return false;
+// Hàm tính điểm khớp tên (càng cao càng chính xác)
+function nameMatchScore(a, b) {
+    if (!a || !b) return 0;
     const cleanA = cleanName(a);
     const cleanB = cleanName(b);
-    if (!cleanA || !cleanB) return false;
-    return cleanA === cleanB || cleanA.includes(cleanB) || cleanB.includes(cleanA);
+    if (!cleanA || !cleanB) return 0;
+    // Khớp hoàn toàn: điểm cao nhất
+    if (cleanA === cleanB) return 100;
+    // Khớp gần đúng: chỉ tính khi độ dài tương đồng >= 90%
+    const shorter = cleanA.length < cleanB.length ? cleanA : cleanB;
+    const longer  = cleanA.length < cleanB.length ? cleanB : cleanA;
+    if (longer.includes(shorter)) {
+        const ratio = shorter.length / longer.length;
+        if (ratio >= 0.9) return 80; // Khớp rất gần (VD: có khoảng trắng thừa)
+        // Không đủ độ tương đồng → không tính là khớp
+        return 0;
+    }
+    return 0;
+}
+
+function isNameMatch(a, b) {
+    return nameMatchScore(a, b) > 0;
+}
+
+// Hàm timeout thông minh
+function withTimeout(promise, ms, label) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(`TIMEOUT_${label}`));
+        }, ms);
+        promise.then((val) => { clearTimeout(timer); resolve(val); })
+               .catch((err) => { clearTimeout(timer); reject(err); });
+    });
 }
 
 async function switchToAccount(targetPageName) {
+    const SWITCH_TIMEOUT_MS = 60000; // Tối đa 60 giây cho toàn bộ quá trình đổi nick
+    const startTime = Date.now();
+    
+    // Hàm kiểm tra còn thời gian không
+    const timeLeft = () => SWITCH_TIMEOUT_MS - (Date.now() - startTime);
+    const isTimedOut = () => timeLeft() <= 0;
+    
     try {
-        logMsg(`🚀 Đang mở danh sách tài khoản cho: "${targetPageName}"...`);
+        logMsg(`🚀 Đang mở danh sách tài khoản cho: "${targetPageName}"... (Timeout: 60s)`);
         await delay(5000);
 
         // BƯỚC 0: Nếu ở trang Home (m.facebook.com), bấm nút Menu 3 sọc (☰) ở góc trên bên phải để mở Menu
@@ -156,17 +190,36 @@ async function switchToAccount(targetPageName) {
             }
 
             if (switchBtn) break;
+            
+            // Kiểm tra timeout
+            if (isTimedOut()) {
+                logMsg(`⏰ QUÁ THỜI GIAN 60s khi tìm nút Switcher! Nick "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
+                chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+                return;
+            }
             await delay(2000);
         }
 
         if (switchBtn) {
             logMsg("👉 Đã thấy nút Mũi tên switcher! Đang bấm...");
             simulateClick(switchBtn);
+        } else {
+            logMsg(`⏰ QUÁ THỜI GIAN hoặc không tìm thấy nút Switcher! Nick "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
+            chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+            return;
         }
 
         // BƯỚC 2: Chờ Popup "Your Pages and profiles" mở ra
         await delay(4000);
-        logMsg(`📜 Đang quét danh sách tài khoản tìm Nick: "${targetPageName}"...`);
+        
+        // Kiểm tra timeout trước khi vào vòng scroll dài
+        if (isTimedOut()) {
+            logMsg(`⏰ QUÁ THỜI GIAN 60s trước khi quét danh sách nick! Nick "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
+            chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+            return;
+        }
+        
+        logMsg(`📜 Đang quét danh sách tài khoản tìm Nick: "${targetPageName}"... (Còn ${Math.round(timeLeft()/1000)}s)`);
 
         let dialog = document.querySelector('div[role="dialog"]') || document.body;
         let foundElement = null;
@@ -180,9 +233,29 @@ async function switchToAccount(targetPageName) {
                 return isNameMatch(line1, targetPageName);
             });
 
+            // Sắp xếp theo điểm khớp - nhựng phần tử khớp CHÍNH XÁC sẽ được ưu tiên
             if (allLabels.length > 0) {
-                foundElement = allLabels.find(el => el.getBoundingClientRect().height > 0) || allLabels[0];
-                if (foundElement) break;
+                // Tính điểm cho từng ứng viên và lấy cái có điểm cao nhất
+                const scoredLabels = allLabels
+                    .filter(el => el.getBoundingClientRect().height > 0)
+                    .map(el => ({
+                        el,
+                        score: nameMatchScore(el.innerText.split('\n')[0].trim(), targetPageName)
+                    }))
+                    .sort((a, b) => b.score - a.score);
+                
+                if (scoredLabels.length > 0) {
+                    logMsg(`🎯 Khớp tốt nhất: "${scoredLabels[0].el.innerText.split('\n')[0].trim()}" (điểm: ${scoredLabels[0].score}/100)`);
+                    foundElement = scoredLabels[0].el;
+                    if (foundElement) break;
+                }
+            }
+
+            // Timeout giữa chừng khi scroll
+            if (isTimedOut()) {
+                logMsg(`⏰ QUÁ THỜI GIAN 60s khi đang cuộn tìm Nick! "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
+                chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+                return;
             }
 
             // Scroll TẤT CẢ các vùng có thể cuộn được (đặc biệt là bảng Your Pages and profiles)
@@ -273,7 +346,13 @@ async function switchToAccount(targetPageName) {
         }
 
     } catch (e) {
-        logMsg(`❌ Lỗi Switcher: ${e.message}`);
+        if (e.message && e.message.startsWith('TIMEOUT_')) {
+            logMsg(`⏰ TOÀN BỘ QUÁ TRÌNH ĐỔI NICK "${targetPageName}" ĐÃ QUÁ THỜI GIAN 60S! Xếp vào hàng đợi thử lại cuối vòng...`);
+        } else {
+            logMsg(`❌ Lỗi Switcher: ${e.message}`);
+        }
+        // Dù lỗi gì cũng xếp nick này vào retry queue, không được bỏ qua vĩnh viễn
+        try { chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName }); } catch(ex) {}
     }
 }
 
