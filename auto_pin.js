@@ -76,34 +76,48 @@ function parseSpintax(text) {
     return text;
 }
 
+// Hàm tính điểm khớp tên (Cho phép sai chính tả - Typo tolerance)
+function nameMatchScore(a, b) {
+    if (!a || !b) return 0;
+    const cleanA = cleanName(a);
+    const cleanB = cleanName(b);
+    if (!cleanA || !cleanB) return 0;
+    
+    // Khớp hoàn toàn: điểm cao nhất
+    if (cleanA === cleanB) return 100;
+    
+    // Khớp bao hàm (chuỗi dài chứa chuỗi ngắn)
+    const shorter = cleanA.length < cleanB.length ? cleanA : cleanB;
+    const longer  = cleanA.length < cleanB.length ? cleanB : cleanA;
+    if (longer.includes(shorter) && (shorter.length / longer.length >= 0.8)) {
+        return 80; 
+    }
+
+    // Thuật toán Levenshtein Distance (Chấp nhận gõ sai 1-2 chữ)
+    let matrix = [];
+    for (let i = 0; i <= cleanB.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= cleanA.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= cleanB.length; i++) {
+        for (let j = 1; j <= cleanA.length; j++) {
+            if (cleanB.charAt(i-1) === cleanA.charAt(j-1)) {
+                matrix[i][j] = matrix[i-1][j-1];
+            } else {
+                matrix[i][j] = Math.min(matrix[i-1][j-1] + 1, Math.min(matrix[i][j-1] + 1, matrix[i-1][j] + 1));
+            }
+        }
+    }
+    const dist = matrix[cleanB.length][cleanA.length];
+    const maxLen = Math.max(cleanA.length, cleanB.length);
+    
+    if (maxLen > 10 && dist <= 3) return 60;
+    if (maxLen > 5 && dist <= 2) return 70;
+    if (maxLen <= 5 && dist === 1) return 50;
+
+    return 0;
+}
+
 function isNameMatch(profileName, targetName) {
-    if (!profileName || !targetName) return false;
-    const a = cleanName(profileName);
-    const b = cleanName(targetName);
-    
-    // 1. Khớp chính xác 100%
-    if (a === b) return true;
-    
-    // 2. Tách từ so sánh chuẩn từng từ
-    const wordsA = a.split(' ').filter(w => w.length > 0);
-    const wordsB = b.split(' ').filter(w => w.length > 0);
-
-    if (wordsA.length === wordsB.length) {
-        let matchCount = 0;
-        for (let i = 0; i < wordsA.length; i++) {
-            if (wordsA[i] === wordsB[i]) matchCount++;
-        }
-        return (matchCount / wordsA.length) >= 0.9;
-    }
-
-    if (a.length > 5 && b.length > 5) {
-        const lengthDiff = Math.abs(a.length - b.length);
-        if (lengthDiff <= 4 && (a.includes(b) || b.includes(a))) {
-            return true;
-        }
-    }
-
-    return false;
+    return nameMatchScore(profileName, targetName) > 0;
 }
 
 function dataURLtoFile(dataurl, filename) {
