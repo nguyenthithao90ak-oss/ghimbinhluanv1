@@ -116,33 +116,29 @@ function printSessionReport() {
         // Lọc bỏ những page đã bị lag nhưng sau đó thử lại thành công
         failArr = failArr.filter(p => !successArr.some(sp => sp.name === p.name));
         
-        // Hàm phụ tính xem là buổi Sáng/Chiều/Tối
-        const getBuoi = (timeStr) => {
-            let hour = 12;
-            try {
-                let hStr = timeStr.split(':')[0];
-                if (timeStr.toLowerCase().includes('pm') && hStr !== '12') hour = parseInt(hStr) + 12;
-                else if (timeStr.toLowerCase().includes('am') && hStr === '12') hour = 0;
-                else hour = parseInt(hStr);
-            } catch(e){}
-            if (hour >= 0 && hour < 12) return 'Sáng';
-            if (hour >= 12 && hour < 18) return 'Chiều';
-            return 'Tối';
-        };
+        let reportStr = `📊 BÁO CÁO KẾT QUẢ PHIÊN CHẠY 📊\n`;
+        reportStr += `------------------------------------\n`;
+        reportStr += `✅ THÀNH CÔNG: ${successArr.length} Page\n`;
+        if (successArr.length === 0) {
+            reportStr += `   (Không có)\n`;
+        } else {
+            successArr.forEach((p, i) => {
+                const idx = (i + 1 < 10) ? ` ${i + 1}` : `${i + 1}`;
+                reportStr += ` ${idx}. 🟢 TK "${p.name}" [${p.time}]\n`;
+            });
+        }
         
-        let reportStr = `\n========= 📊 BÁO CÁO TỔNG HỢP PHIÊN CHẠY =========\n`;
-        reportStr += `✅ THÀNH CÔNG (${successArr.length} Page):\n`;
-        if (successArr.length === 0) reportStr += `   (Không có)\n`;
-        else successArr.forEach((p, i) => {
-            reportStr += `   ${i+1}. Đã ghim bình luận cho TK "${p.name}" vào buổi ${getBuoi(p.time)} lúc ${p.time}\n`;
-        });
-        
-        reportStr += `\n⚠️ BỊ LAG / LỖI (${failArr.length} Page):\n`;
-        if (failArr.length === 0) reportStr += `   (Tuyệt vời! Không có lỗi)\n`;
-        else failArr.forEach((p, i) => {
-            reportStr += `   ${i+1}. Bị lỗi/lag tại TK "${p.name}" vào buổi ${getBuoi(p.time)} lúc ${p.time}\n`;
-        });
-        reportStr += `=================================================\n`;
+        reportStr += `------------------------------------\n`;
+        reportStr += `⚠️ BỊ LAG / LỖI: ${failArr.length} Page\n`;
+        if (failArr.length === 0) {
+            reportStr += `🎉 Trạng thái: Hoàn hảo! (0 lỗi)\n`;
+        } else {
+            failArr.forEach((p, i) => {
+                const idx = (i + 1 < 10) ? ` ${i + 1}` : `${i + 1}`;
+                reportStr += ` ${idx}. 🔴 TK "${p.name}" [${p.time}]\n`;
+            });
+        }
+        reportStr += `------------------------------------\n`;
         
         addLog(reportStr);
 
