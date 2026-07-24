@@ -57,10 +57,12 @@ document.getElementById('loopStrategy').addEventListener('change', (e) => {
     });
 });
 
-document.getElementById('loopDelayMinutes').addEventListener('input', (e) => {
-    chrome.storage.local.set({ 
-        loopDelayMinutes: parseInt(e.target.value) || 30 
-    });
+document.getElementById('loopDelayMin').addEventListener('input', (e) => {
+    chrome.storage.local.set({ loopDelayMin: parseInt(e.target.value) || 20 });
+});
+
+document.getElementById('loopDelayMax').addEventListener('input', (e) => {
+    chrome.storage.local.set({ loopDelayMax: parseInt(e.target.value) || 40 });
 });
 
 document.getElementById('scheduleTimes').addEventListener('input', (e) => {
@@ -70,14 +72,17 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
 });
 
 // Phục hồi trạng thái select box khi mở popup
-chrome.storage.local.get(['loopStrategy', 'loopDelayMinutes', 'scheduleTimes'], (st) => {
+chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes'], (st) => {
     if (st.loopStrategy) {
         document.getElementById('loopStrategy').value = st.loopStrategy;
         document.getElementById('loopDelayGroup').style.display = (st.loopStrategy === 'DELAY') ? 'block' : 'none';
         document.getElementById('scheduleTimeGroup').style.display = (st.loopStrategy === 'SCHEDULE') ? 'block' : 'none';
     }
-    if (st.loopDelayMinutes) {
-        document.getElementById('loopDelayMinutes').value = st.loopDelayMinutes;
+    if (st.loopDelayMin) {
+        document.getElementById('loopDelayMin').value = st.loopDelayMin;
+    }
+    if (st.loopDelayMax) {
+        document.getElementById('loopDelayMax').value = st.loopDelayMax;
     }
     if (st.scheduleTimes) {
         document.getElementById('scheduleTimes').value = st.scheduleTimes;

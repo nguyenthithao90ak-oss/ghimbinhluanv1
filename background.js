@@ -385,9 +385,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 addHistoryRecord(pName, "✅ Đăng & Ghim mới", "Đã đăng bài mẫu + đính kèm ảnh + ghim thành công");
             }
             
-            chrome.storage.local.get(['loopStrategy', 'loopDelayMinutes'], (settings) => {
+            chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax'], (settings) => {
                 const strat = settings.loopStrategy || 'ONCE';
-                const delayMins = settings.loopDelayMinutes || 30;
+                const minDelay = settings.loopDelayMin || 20;
+                const maxDelay = settings.loopDelayMax || 40;
+                const delayMins = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
 
                 if (state.targetConfigs.length === 1) {
                     if (strat === 'ONCE') {
@@ -474,10 +476,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         });
     }
     else if (alarm.name === "singleAccountRepeat") {
-        chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'loopStrategy', 'loopDelayMinutes'], (state) => {
+        chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'loopStrategy'], (state) => {
             if (!state.isBotRunning) return;
             const pName = state.targetConfigs[0]?.pageName || "Nick";
-            const stratStr = state.loopStrategy === 'DELAY' ? `Sau ${state.loopDelayMinutes} phút nghỉ` : `Hết thời gian nghỉ`;
+            const stratStr = state.loopStrategy === 'DELAY' ? `Hết thời gian nghỉ ngẫu nhiên` : `Hết thời gian nghỉ`;
             addLog(`🔄 ${stratStr} -> Bắt đầu lặp lại từ chỗ Reels cho "${pName}"...`);
             chrome.storage.local.set({ currentConfigIndex: 0, step: "NAVIGATING_PROFILE" }, processNextStep);
         });
@@ -499,10 +501,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                     }, processNextStep);
                 } else {
                     // Đã duyệt xong 1 Vòng tất cả các Page -> Xử lý theo Chiến Lược Lặp
-                    chrome.storage.local.get(['originalTargetConfigs', 'loopStrategy', 'loopDelayMinutes'], (origSt) => {
+                    chrome.storage.local.get(['originalTargetConfigs', 'loopStrategy', 'loopDelayMin', 'loopDelayMax'], (origSt) => {
                         const origConfigs = origSt.originalTargetConfigs || state.targetConfigs;
                         const strat = origSt.loopStrategy || 'ONCE';
-                        const delayMins = origSt.loopDelayMinutes || 30;
+                        const minDelay = origSt.loopDelayMin || 20;
+                        const maxDelay = origSt.loopDelayMax || 40;
+                        const delayMins = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
 
                         if (strat === 'ONCE') {
                             addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ ĐỘNG DỪNG LẠI!`);
