@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AutoPinBot Matrix Pro V4</title>
+    <style>
+        body { width: 370px; font-family: 'Segoe UI', sans-serif; padding: 12px; margin: 0; background: #f0f2f5; }
+        h3 { margin-top: 0; color: #1877f2; text-align: center; margin-bottom: 10px; }
+        .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+        .tab-btn { flex: 1; padding: 8px; font-size: 11px; border: 1px solid #ccc; background: #e4e6eb; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .tab-btn.active { background: #1877f2; color: white; border-color: #1877f2; }
+        .card { background: white; padding: 10px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 10px; }
+        .group { margin-bottom: 8px; }
+        label { display: block; font-weight: bold; margin-bottom: 3px; font-size: 11px; }
+        input, textarea, select { width: 100%; padding: 6px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+        textarea { height: 45px; resize: vertical; }
+        button.btn-main { width: 100%; padding: 10px; background: #42b72a; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 13px; margin-top: 5px; }
+        button.btn-main:hover { background: #36a420; }
+        .page-item { border-bottom: 1px solid #eee; padding: 5px 0; font-size: 11px; display: flex; justify-content: space-between; align-items: center; }
+        .page-item:last-child { border-bottom: none; }
+        .btn-del { background: #ff3b30; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; }
+        .btn-view { background: #007bff; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-right: 3px; }
+        .item-details { display: none; margin-top: 5px; padding: 6px; background: #f9f9f9; border: 1px dashed #ccc; border-radius: 4px; font-size: 11px; white-space: pre-wrap; word-break: break-word; }
+        .item-details img { max-width: 100%; max-height: 150px; display: block; margin-top: 5px; border-radius: 3px; object-fit: contain; }
+        
+        .log-box { background: #1e1e1e; color: #4af626; font-family: 'Consolas', monospace; font-size: 11px; padding: 8px; border-radius: 5px; height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+    </style>
+</head>
+<body>
+    <h3>🤖 AutoPinBot Matrix Pro V4</h3>
+    <button id="btnOpenDashboard" style="width:100%; padding:8px; background:linear-gradient(135deg, #1877f2, #0052c2); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-bottom:10px;">🖥️ MỞ GIAO DIỆN TOÀN MÀN HÌNH (DASHBOARD)</button>
+    
+    <div class="tabs">
+        <button class="tab-btn active" id="tabRunBtn">⚡ CHẠY AUTO</button>
+        <button class="tab-btn" id="tabConfigBtn">⚙️ CẤU HÌNH</button>
+        <button class="tab-btn" id="tabHistoryBtn">📊 LỊCH SỬ & BACKUP</button>
+    </div>
+
+    <!-- TAB 1: CHẠY AUTO & LOG GIÁM SÁT -->
+    <div id="sectionRun">
+        <div class="card">
+            <div class="group">
+                <label>Chọn Chế Độ Chạy:</label>
+                <select id="runMode">
+                    <option value="ALL">🔄 TỰ ĐỘNG ĐỔI LẦN LƯỢT TẤT CẢ PAGE</option>
+                    <option value="SINGLE">🎯 CHỈ CHẠY 1 PAGE CHỌN DƯỚI ĐÂY</option>
+                </select>
+            </div>
+            <div class="group" id="singlePageGroup" style="display: none;">
+                <label>Chọn Page Muốn Chạy:</label>
+                <select id="singlePageSelect">
+                    <option value="">-- Chưa có mẫu --</option>
+                </select>
+            </div>
+            <button id="btnStartCheck" class="btn-main">🚀 BẮT ĐẦU CHUYỂN NICK & CHẠY</button>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <h4 style="margin: 0; font-size: 12px; color: #1877f2;">📜 Nhật Ký Thao Tác Giám Sát:</h4>
+                <button id="btnClearLog" style="background:#888; color:white; border:none; padding:2px 6px; border-radius:3px; font-size:10px; cursor:pointer;">Xóa Log</button>
+            </div>
+            <div class="log-box" id="logContainer">Đang sẵn sàng... Vui lòng bấm Bắt Đầu để chạy.</div>
+        </div>
+    </div>
+
+    <!-- TAB 2: CẤU HÌNH PAGE -->
+    <div id="sectionConfig" style="display: none;">
+        <div class="card">
+            <h4 style="margin: 0 0 8px 0; color: #1877f2;">➕ Thêm / Sửa Mẫu Page</h4>
+            <form id="configForm">
+                <div class="group">
+                    <label>Tên Fanpage (Chính xác như trong danh sách FB):</label>
+                    <input type="text" id="cfgPageName" placeholder="Ví dụ: Kho hàng gia dụng" required>
+                </div>
+                <div class="group">
+                    <label>Nội dung Comment muốn ghim:</label>
+                    <textarea id="cfgCommentText" placeholder="Nhập câu từ kịch bản..." required></textarea>
+                </div>
+                <div class="group">
+                    <label>Chọn ảnh hoặc Dán ảnh (Ctrl + V):</label>
+                    <input type="file" id="cfgImageFile" accept="image/*">
+                    <div id="pasteDropArea" tabindex="0" style="border: 2px dashed #1877f2; background: #e7f3ff; border-radius: 5px; padding: 8px; text-align: center; font-size: 11px; margin-top: 5px; cursor: pointer; color: #1877f2; font-weight: bold; outline: none;">
+                        📋 Hoặc bấm vào đây rồi nhấn Ctrl + V để DÁN ÁNH
+                    </div>
+                    <div id="imagePreviewContainer" style="display: none; margin-top: 6px; text-align: center; background: #f9f9f9; padding: 5px; border-radius: 5px; border: 1px dashed #ccc;">
+                        <img id="imagePreview" style="max-height: 110px; max-width: 100%; border-radius: 4px; object-fit: contain;">
+                        <br><button type="button" id="btnRemoveImage" style="background:#ff3b30; color:white; border:none; padding:3px 10px; border-radius:3px; font-size:10px; font-weight:bold; margin-top:4px; cursor:pointer;">❌ Xóa ảnh này</button>
+                    </div>
+                </div>
+                <button type="submit" style="width:100%; padding:6px; background:#1877f2; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">LƯU MẪU PAGE NÀY</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h4 style="margin: 0;">📋 Danh sách Mẫu đã lưu</h4>
+                <button id="btnClearAllConfigs" style="background:#ff3b30; color:white; border:none; padding:3px 8px; border-radius:3px; font-size:10px; font-weight:bold; cursor:pointer;">🗑️ Xóa Tất Cả Mẫu</button>
+            </div>
+            <div id="configList">
+                <div style="text-align:center; color:#888; font-size:11px;">Đang tải...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: LỊCH SỬ CHẠY & BẢO VỆ DỮ LIỆU -->
+    <div id="sectionHistory" style="display: none;">
+        <div class="card">
+            <h4 style="margin: 0 0 6px 0; color: #1877f2;">💾 Sao Lưu / Phục Hồi Dữ Liệu</h4>
+            <div style="display: flex; gap: 5px;">
+                <button id="btnExportBackup" style="flex:1; padding:6px; background:#007bff; color:white; border:none; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;">📥 XUẤT BACKUP JSON</button>
+                <button id="btnImportBackup" style="flex:1; padding:6px; background:#28a745; color:white; border:none; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;">📤 NHẬP RESTORE JSON</button>
+                <input type="file" id="fileBackupInput" accept=".json" style="display: none;">
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <h4 style="margin: 0; font-size: 12px; color: #1877f2;">📊 Bảng Lịch Sử Chạy Nick</h4>
+                <button id="btnClearHistory" style="background:#888; color:white; border:none; padding:2px 6px; border-radius:3px; font-size:10px; cursor:pointer;">Xóa Lịch Sử</button>
+            </div>
+            <div style="max-height: 200px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                    <thead>
+                        <tr style="background: #e4e6eb; text-align: left;">
+                            <th style="padding: 4px;">Thời Gian</th>
+                            <th style="padding: 4px;">Tên Nick/Page</th>
+                            <th style="padding: 4px;">Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr><td colspan="3" style="text-align:center; padding:10px; color:#888;">Chưa có lịch sử chạy.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

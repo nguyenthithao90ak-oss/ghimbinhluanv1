@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 AutoPinBot Matrix Pro V4 — Dashboard Quản Lý Toàn Màn Hình</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --primary: #1877f2;
+            --primary-hover: #166fe5;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --text-color: #333333;
+            --border-color: #de7f2;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; }
+
+        /* Header Bar */
+        .header-bar { background: linear-gradient(135deg, #1877f2, #0052c2); color: white; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .header-title { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: bold; }
+        .header-actions { display: flex; gap: 10px; }
+
+        /* General Buttons */
+        .btn { padding: 9px 16px; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: #ffffff; color: var(--primary); }
+        .btn-primary:hover { background: #e7f3ff; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-warning { background: #ff9800; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+
+        /* Main Container Layout */
+        .dashboard-container { display: flex; gap: 20px; padding: 20px; max-width: 1600px; margin: 0 auto; }
+        .left-col { width: 440px; display: flex; flex-direction: column; gap: 20px; flex-shrink: 0; }
+        .right-col { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+        /* Stat Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .stat-card { background: white; padding: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); text-align: center; border-top: 4px solid var(--primary); }
+        .stat-card.success { border-color: var(--success); }
+        .stat-card.warning { border-color: var(--warning); }
+        .stat-card.danger { border-color: var(--danger); }
+        .stat-number { font-size: 26px; font-weight: bold; margin-top: 6px; }
+        .stat-label { font-size: 12px; color: #666; font-weight: bold; text-transform: uppercase; }
+
+        /* Cards & Forms */
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .card-title { font-size: 16px; font-weight: bold; color: var(--primary); margin: 0; }
+
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #444; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; outline: none; transition: border 0.2s; }
+        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(24,119,242,0.1); }
+        textarea.form-control { height: 75px; resize: vertical; }
+
+        /* Paste Box */
+        .paste-zone { border: 2px dashed var(--primary); background: #f0f7ff; padding: 16px; border-radius: 8px; text-align: center; color: var(--primary); font-weight: bold; font-size: 13px; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+        .paste-zone:hover { background: #e1f0ff; }
+        .img-preview-box { margin-top: 10px; text-align: center; background: #fafafa; padding: 10px; border-radius: 6px; border: 1px dashed #ccc; }
+        .img-preview-box img { max-height: 140px; max-width: 100%; border-radius: 6px; object-fit: contain; }
+
+        /* Saved Configs List */
+        .config-list { max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .config-item { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px; background: #fff; transition: box-shadow 0.2s; }
+        .config-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .config-item-header { display: flex; justify-content: space-between; align-items: center; }
+        .config-item-title { font-weight: bold; font-size: 14px; color: #111; }
+        .config-item-body { margin-top: 6px; font-size: 12px; color: #555; white-space: pre-wrap; background: #f9f9f9; padding: 8px; border-radius: 4px; }
+        .config-item-img { max-height: 80px; margin-top: 6px; border-radius: 4px; border: 1px solid #ddd; }
+
+        /* Console Log Box */
+        .console-box { background: #1b1e23; color: #39ff14; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; padding: 14px; border-radius: 8px; height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+
+        /* History Table */
+        .table-responsive { max-height: 320px; overflow-y: auto; border: 1px solid #eee; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th { background: #f8f9fa; padding: 10px 12px; font-weight: bold; color: #555; position: sticky; top: 0; border-bottom: 2px solid #dee2e6; }
+        td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        tr:hover { background: #f8f9fa; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-block; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+
+        /* Session Accordion Styles */
+        .session-card { border: 1px solid #e1e4e8; border-radius: 8px; background: #fff; overflow: hidden; }
+        .session-header { padding: 12px 16px; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: background 0.2s; }
+        .session-header:hover { background: #eef5ff; }
+        .session-title { font-weight: bold; font-size: 14px; color: #1877f2; display: flex; align-items: center; gap: 8px; }
+        .session-stats { display: flex; gap: 10px; font-size: 12px; font-weight: bold; }
+        .session-body { display: none; padding: 14px; background: #fff; border-top: 1px solid #eee; }
+        .session-card.active .session-body { display: block; }
+        .item-log-box { display: none; margin-top: 8px; background: #1b1e23; color: #39ff14; font-family: monospace; font-size: 11px; padding: 8px; border-radius: 4px; white-space: pre-wrap; word-break: break-word; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header-bar">
+        <div class="header-title">
+            <span>🤖</span> AutoPinBot Matrix Pro V4 — Giao Diện Quản Lý Toàn Màn Hình
+        </div>
+        <div class="header-actions">
+            <button id="btnDashStart" class="btn btn-success">🚀 BẮT ĐẦU CHẠY AUTO</button>
+            <button id="btnDashExport" class="btn btn-primary">📥 XUẤT BACKUP JSON</button>
+            <button id="btnDashImport" class="btn btn-secondary">📤 NHẬP RESTORE JSON</button>
+            <input type="file" id="dashBackupFileInput" accept=".json" style="display:none;">
+        </div>
+    </div>
+
+    <!-- Dashboard Container -->
+    <div class="dashboard-container">
+        
+        <!-- Left Column: Config Management -->
+        <div class="left-col">
+            
+            <!-- Form Thêm Mẫu -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">➕ Thêm / Chỉnh Sửa Mẫu Page</h3>
+                </div>
+                <form id="dashConfigForm">
+                    <div class="form-group">
+                        <label>Tên Fanpage (Chính xác theo Facebook):</label>
+                        <input type="text" id="dashPageName" class="form-control" placeholder="Ví dụ: Kho hàng gia dụng" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nội dung Comment muốn ghim:</label>
+                        <textarea id="dashCommentText" class="form-control" placeholder="Nhập kịch bản câu từ cần đăng & ghim..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Hình Ảnh Kèm Theo (Tùy chọn):</label>
+                        <input type="file" id="dashImageFile" accept="image/*" class="form-control">
+                        <div id="dashPasteZone" class="paste-zone" tabindex="0">
+                            📋 Nhấp vào đây rồi nhấn Ctrl + V để DÁN ÁNH trực tiếp
+                        </div>
+                        <div id="dashPreviewContainer" class="img-preview-box" style="display:none;">
+                            <img id="dashPreviewImg" alt="Xem trước ảnh">
+                            <br>
+                            <button type="button" id="btnDashRemoveImg" class="btn btn-danger" style="margin-top:8px; padding:4px 10px; font-size:11px;">❌ Xóa ảnh này</button>
+                        </div>
+                    </div>
+                    <button type="submit" id="btnDashSaveConfig" class="btn btn-success" style="width:100%; justify-content:center;">💾 LƯU MẪU PAGE NÀY</button>
+                </form>
+            </div>
+
+            <!-- List Mẫu Đã Lưu -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📋 Danh Sách Mẫu Đã Lưu</h3>
+                    <button id="btnDashClearConfigs" class="btn btn-danger" style="padding:4px 10px; font-size:11px;">🗑️ Xóa Tất Cả</button>
+                </div>
+                <div id="dashConfigList" class="config-list">
+                    <div style="text-align:center; color:#888; padding:20px;">Đang tải danh sách mẫu...</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Stats, Realtime Console & History -->
+        <div class="right-col">
+            
+            <!-- Summary Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Tổng Mẫu Page</div>
+                    <div class="stat-number" id="statTotalConfigs">0</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Thành Công</div>
+                    <div class="stat-number" id="statSuccess">0</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-label">Bị Lag (Thử lại)</div>
+                    <div class="stat-number" id="statLagged">0</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-label">Trạng Thái Bot</div>
+                    <div class="stat-number" id="statStatus" style="font-size:16px; margin-top:12px;">Đang dừng</div>
+                </div>
+            </div>
+
+            <!-- Realtime Console Log -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📜 Nhật Ký Thao Tác Giám Sát Realtime</h3>
+                    <button id="btnDashClearLog" class="btn btn-secondary" style="padding:4px 10px; font-size:11px;">Xóa Log</button>
+                </div>
+                <div id="dashLogConsole" class="console-box">Đang sẵn sàng... Vui lòng bấm Bắt Đầu Chạy Auto.</div>
+            </div>
+
+            <!-- Detailed History Table by Sessions -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">📊 Lịch Sử Theo Từng Lượt Bật / Phiên Chạy (Chi Tiết)</h3>
+                    <button id="btnDashClearHistory" class="btn btn-secondary" style="padding:4px 10px; font-size:11px;">Xóa Lịch Sử</button>
+                </div>
+                <div id="dashSessionList" style="max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="text-align:center; padding:20px; color:#888;">Chưa có phiên chạy nào.</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
