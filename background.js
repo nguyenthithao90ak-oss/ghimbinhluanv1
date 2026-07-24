@@ -232,28 +232,28 @@ function addHistoryRecord(pageName, status, details) {
             const isLagged        = status.includes('⚠️') || status.toLowerCase().includes('lag');
             const isSuccess       = status.includes('✅');
 
-            let msg;
+            let actionText = '';
             if (isAlreadyPinned) {
-                msg = `ℹ️ TK "${pageName}" đã có bình luận ghim từ TRƯỚC → Bot bỏ qua`;
+                actionText = `ℹ️ Bỏ qua (Đã ghim từ trước): "${pageName}"`;
             } else if (isLagged) {
-                msg = `⚠️ TK "${pageName}" bị LAG/LỖI → Xếp vào hàng đợi thử lại cuối vòng`;
+                actionText = `⚠️ Bị Lag (Sẽ thử lại): "${pageName}"`;
             } else if (isSuccess) {
-                msg = `✅ Đã ghim bình luận cho TK "${pageName}" lúc ${timeStr}`;
+                actionText = `✅ Ghim thành công: "${pageName}" [${timeStr}]`;
             } else {
                 return;
             }
 
-            // --- TỰ ĐỘNG CẬP NHẬT TIẾN ĐỘ VÀO TIN NHẮN (THAY THẾ CHO /CHECK) ---
             const configs = teleRes.targetConfigs || [];
             const currentIdx = teleRes.currentConfigIndex || 0;
             const retryQueue = teleRes.retryQueue || [];
             const remaining = Math.max(0, configs.length - currentIdx - 1);
-            
-            msg += `\n---`;
-            msg += `\n📋 Còn lại: ${remaining} nick trong vòng này`;
+
+            let statusLine = `📊 Còn lại: ${remaining} nick`;
             if (retryQueue.length > 0) {
-                msg += `\n🔄 Đang xếp hàng thử lại: ${retryQueue.length} nick`;
+                statusLine += ` | Thử lại: ${retryQueue.length}`;
             }
+
+            msg = `${actionText}\n${statusLine}`;
 
             console.log(`[TELEGRAM REALTIME] Gửi tin: ${msg}`);
             fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
