@@ -119,7 +119,7 @@ function processNextStep() {
             if (pageName) {
                 addLog(`🔄 Chuyển sang Menu để đổi nick "${pageName}"...`);
             }
-            chrome.tabs.update(tabId, { url: "https://m.facebook.com/menu/bookmarks/" });
+            chrome.tabs.update(tabId, { url: "https://m.facebook.com/bookmarks/" });
         }
     });
 }
