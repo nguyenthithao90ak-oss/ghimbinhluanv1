@@ -1,6 +1,26 @@
 var delay = (minSec, maxSec = minSec) => {
-    const sec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
-    return new Promise(res => setTimeout(res, sec * 1000));
+    return new Promise((resolve, reject) => {
+        const sec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+        let elapsed = 0;
+        const interval = setInterval(() => {
+            try {
+                if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                    chrome.storage.local.get(['isBotRunning'], (state) => {
+                        if (state && state.isBotRunning === false) {
+                            clearInterval(interval);
+                            reject(new Error("BOT_STOPPED_BY_USER"));
+                            return;
+                        }
+                    });
+                }
+            } catch(e) {}
+            elapsed += 0.5;
+            if (elapsed >= sec) {
+                clearInterval(interval);
+                resolve();
+            }
+        }, 500);
+    });
 };
 
 function safeSendMessage(msgObj) {
@@ -372,25 +392,46 @@ async function processSingleReel(cfg, targetPageName) {
 }
 
 // =================== MAIN FLOW ===================
+function getFacebookProfileNameStrict() {
+    const checkedRadio = document.querySelector('input[type="radio"][checked], [aria-checked="true"], div[role="radio"][aria-checked="true"]');
+    if (checkedRadio) {
+        let parent = checkedRadio.closest('li, label, div[role="button"], div');
+        if (parent && parent.innerText) {
+            const txt = parent.innerText.trim().split('\n')[0].trim();
+            if (txt.length > 2) return txt;
+        }
+    }
+
+    const headers = Array.from(document.querySelectorAll('h1, h2, h3, div, span, strong')).filter(el => {
+        const r = el.getBoundingClientRect();
+        const txt = (el.innerText || '').trim();
+        const tl = txt.toLowerCase();
+        return r.top > 80 && r.top < 380 && r.left < 280 && r.width > 50 && r.height > 15 && txt.length > 2 &&
+               !tl.includes('followers') && !tl.includes('following') && !tl.includes('posts') &&
+               !tl.includes('dashboard') && !tl.includes('facebook') && !tl.includes('menu') &&
+               !tl.includes('notifications') && !tl.includes('professional') && !tl.includes('add to story');
+    });
+
+    if (headers.length > 0) {
+        return headers[0].innerText.split('\n')[0].trim();
+    }
+    return "";
+}
+
 async function runChecking(pageConfigs, targetPageName) {
     try {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
         await delay(2, 3);
         
-        // 0. ĐỌC TÊN NICK
-        let currentPageName = "";
-        const candidates = Array.from(document.querySelectorAll('h1, h2, h3')).filter(h => {
-            const t = (h.innerText || '').trim().toLowerCase();
-            return t.length > 2 && !t.includes('trình duyệt') && !t.includes('browser') && !t.includes('hỗ trợ') && !t.includes('facebook') && !t.includes('menu') && !t.includes('profile') && !t.includes('comments');
-        });
-        if (candidates.length > 0) currentPageName = candidates[0].innerText.trim();
+        // 0. ĐỌC TÊN NICK CHUẨN XÁC VÙNG HEADER
+        let currentPageName = getFacebookProfileNameStrict();
 
-        logMsg(`📌 Profile: "${currentPageName}" | Mục tiêu: "${targetPageName}"`);
+        logMsg(`📌 Profile nhận diện: "${currentPageName}" | Mục tiêu: "${targetPageName}"`);
 
-        if (isNameMatch(currentPageName, targetPageName)) {
+        if (currentPageName && isNameMatch(currentPageName, targetPageName)) {
             logMsg(`✅ ĐÚNG NICK "${targetPageName}"! Vào Reels luôn...`);
         } else {
-            logMsg(`🔄 KHÁC nick. Cần đổi nick...`);
+            logMsg(`🔄 KHÁC NICK (Hiện tại: "${currentPageName}" ≠ Mục tiêu: "${targetPageName}"). Cần chuyển sang Nick "${targetPageName}"...`);
             chrome.runtime.sendMessage({ action: "needAccountSwitch", targetPageName });
             return;
         }

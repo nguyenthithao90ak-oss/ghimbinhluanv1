@@ -7,6 +7,16 @@ if (typeof chrome !== 'undefined' && chrome.proxy && chrome.proxy.settings) {
     } catch (e) {}
 }
 
+function shuffleArray(array) {
+    if (!array || !Array.isArray(array)) return [];
+    let arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
 function addLog(msg) {
     chrome.storage.local.get(['botLogs'], (result) => {
         let logs = result.botLogs || [];
@@ -119,7 +129,7 @@ function processNextStep() {
             if (pageName) {
                 addLog(`🔄 Chuyển sang Menu để đổi nick "${pageName}"...`);
             }
-            chrome.tabs.update(tabId, { url: "https://m.facebook.com/menu/bookmarks/" });
+            chrome.tabs.update(tabId, { url: "https://m.facebook.com/bookmarks/" });
         }
     });
 }
@@ -131,32 +141,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "stopBotProcess") {
-        chrome.storage.local.set({ isBotRunning: false });
+        chrome.alarms.clearAll();
+        chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
+        addLog("🛑 ĐÃ DỪNG LẠI HOÀN TOÀN TẤT CẢ TÁC VỤ & HẸN GIỜ BOT!");
         console.log("🛑 Dừng tiến trình BOT");
         return;
     }
 
     if (request.action === "startMultiAccountProcess") {
-        const targetConfigs = request.targetConfigs || [];
-        if (targetConfigs.length === 0) return;
+        const rawConfigs = request.targetConfigs || [];
+        if (rawConfigs.length === 0) return;
 
-        console.log(`🚀 Bắt đầu chuỗi tự động cho ${targetConfigs.length} Page...`);
-        startNewSession(targetConfigs);
+        // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
+        const randomizedConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
+
+        console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
+        startNewSession(randomizedConfigs);
+
+        const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
+        addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
+        addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
 
         chrome.tabs.create({
-            url: "https://m.facebook.com/profile.php",
+            url: "https://m.facebook.com/bookmarks/",
             active: true
         }, (tab) => {
             chrome.storage.local.set({
                 isBotRunning: true,
-                targetConfigs: targetConfigs,
-                originalTargetConfigs: targetConfigs,
+                targetConfigs: randomizedConfigs,
+                originalTargetConfigs: rawConfigs,
                 retryQueue: [],
                 currentConfigIndex: 0,
                 tabId: tab.id,
-                step: "WAIT_PROFILE"
+                step: "SWITCHING"
             }, () => {
-                addLog(`🚀 Bắt đầu chạy tiến trình cho ${targetConfigs.length} Page...`);
+                addLog(`🚀 Bắt đầu chạy tiến trình cho ${randomizedConfigs.length} Page (Nick ngẫu nhiên đầu tiên: "${randomizedConfigs[0].pageName}")...`);
             });
         });
         return;
@@ -241,7 +260,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                         targetConfigs: retryQueue,
                         retryQueue: [],
                         currentConfigIndex: 0,
-                        step: "WAIT_PROFILE"
+                        step: "SWITCHING"
                     }, processNextStep);
                 } else {
                     // Đã duyệt xong 1 Vòng tất cả các Page -> Nghỉ 1 phút rồi lặp lại Vòng mới liên tục!
@@ -253,21 +272,27 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                 }
             } else {
                 addLog(`📌 Chuyển sang Page [${nextIndex + 1}/${state.targetConfigs.length}]: "${state.targetConfigs[nextIndex].pageName}"`);
-                chrome.storage.local.set({ currentConfigIndex: nextIndex, step: "WAIT_PROFILE" }, processNextStep);
+                chrome.storage.local.set({ currentConfigIndex: nextIndex, step: "SWITCHING" }, processNextStep);
             }
         });
     }
     else if (alarm.name === "multiAccountLoopRepeat") {
         chrome.storage.local.get(['isBotRunning', 'originalTargetConfigs'], (state) => {
             if (!state.isBotRunning) return;
-            const configs = state.originalTargetConfigs || [];
-            if (configs.length === 0) return;
-            addLog(`🔄 BẮT ĐẦU VÒNG CHẠY MỚI TỰ ĐỘNG CHO TẤT CẢ ${configs.length} PAGE...`);
+            const rawConfigs = state.originalTargetConfigs || [];
+            if (rawConfigs.length === 0) return;
+
+            const newShuffledConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
+            const newOrderNames = newShuffledConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
+
+            addLog(`🎲 VÒNG MỚI: Đã xáo trộn ngẫu nhiên thứ tự cho ${newShuffledConfigs.length} Page (Đảm bảo mỗi Page chạy đúng 1 lần/vòng)...`);
+            addLog(`📋 Thứ tự ngẫu nhiên vòng mới: ${newOrderNames}`);
+
             chrome.storage.local.set({
-                targetConfigs: configs,
+                targetConfigs: newShuffledConfigs,
                 retryQueue: [],
                 currentConfigIndex: 0,
-                step: "WAIT_PROFILE"
+                step: "SWITCHING"
             }, processNextStep);
         });
     }
