@@ -1,52 +1,60 @@
-// --- CẤU HÌNH PROXY TỰ ĐỘNG (Sếp điền thông tin vào đây) ---
-const PROXY_CONFIG = {
-    enabled: true,         // Đổi thành false nếu muốn tắt proxy, dùng mạng gốc
-    host: "103.162.30.61",  // BẮT BUỘC ĐỔI: Điền IP Proxy của sếp
-    port: 49064,            // BẮT BUỘC ĐỔI: Điền Port (Cổng)
-    username: "user49064",  // BẮT BUỘC ĐỔI: Tài khoản Proxy
-    password: "Gd6O4RL1gK"   // BẮT BUỘC ĐỔI: Mật khẩu Proxy
-};
+// --- CẤU HÌNH PROXY TỰ ĐỘNG (ĐỘNG TỪ UI POPUP) ---
+function applyProxyFromStorage() {
+    if (typeof chrome === 'undefined' || !chrome.proxy) return;
 
-if (typeof chrome !== 'undefined' && chrome.proxy) {
-    try {
-        if (PROXY_CONFIG.enabled && PROXY_CONFIG.host !== "123.45.67.89") {
-            // 1. Cài đặt IP và Port
-            const proxySettings = {
-                mode: "fixed_servers",
-                rules: {
-                    singleProxy: { scheme: "http", host: PROXY_CONFIG.host, port: parseInt(PROXY_CONFIG.port) },
-                    bypassList: ["localhost", "127.0.0.1", "api.telegram.org"] // Không qua proxy khi báo cáo Telegram
-                }
-            };
-            chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
-                console.log("✅ Đã kết nối Proxy: " + PROXY_CONFIG.host);
-            });
+    chrome.storage.local.get(['proxyEnable', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
+        const enabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
+        const host = (st.proxyHost && st.proxyHost.trim()) ? st.proxyHost.trim() : "103.162.30.61";
+        const port = parseInt(st.proxyPort) || 49064;
+        const username = (st.proxyUser && st.proxyUser.trim()) ? st.proxyUser.trim() : "user49064";
+        const password = (st.proxyPass && st.proxyPass.trim()) ? st.proxyPass.trim() : "Gd6O4RL1gK";
 
-            // 2. Tự động điền Tài khoản/Mật khẩu (Không hiện bảng hỏi người dùng)
-            chrome.webRequest.onAuthRequired.addListener(
-                (details, callbackFn) => {
-                    if (details.isProxy) {
-                        callbackFn({
-                            authCredentials: {
-                                username: PROXY_CONFIG.username,
-                                password: PROXY_CONFIG.password
-                            }
-                        });
-                    } else {
-                        callbackFn({});
+        try {
+            if (enabled && host && host !== "123.45.67.89") {
+                const proxySettings = {
+                    mode: "fixed_servers",
+                    rules: {
+                        singleProxy: { scheme: "http", host: host, port: port },
+                        bypassList: ["localhost", "127.0.0.1", "api.telegram.org"]
                     }
-                },
-                { urls: ["<all_urls>"] },
-                ["asyncBlocking"] // Bắt buộc cho Manifest V3
-            );
-        } else {
-            // Tắt proxy
-            chrome.proxy.settings.clear({ scope: "regular" }, () => {
-                console.log("Đã gỡ bỏ cấu hình Proxy, trở về mạng gốc.");
-            });
+                };
+                chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
+                    console.log(`✅ Đã BẬT Proxy: ${host}:${port}`);
+                    addLog(`🌐 Đã BẬT Proxy: ${host}:${port}`);
+                });
+
+                if (!window.__proxyAuthListenerAdded) {
+                    window.__proxyAuthListenerAdded = true;
+                    chrome.webRequest.onAuthRequired.addListener(
+                        (details, callbackFn) => {
+                            chrome.storage.local.get(['proxyUser', 'proxyPass'], (pSt) => {
+                                const u = pSt.proxyUser || username;
+                                const p = pSt.proxyPass || password;
+                                if (details.isProxy) {
+                                    callbackFn({ authCredentials: { username: u, password: p } });
+                                } else {
+                                    callbackFn({});
+                                }
+                            });
+                        },
+                        { urls: ["<all_urls>"] },
+                        ["asyncBlocking"]
+                    );
+                }
+            } else {
+                chrome.proxy.settings.clear({ scope: "regular" }, () => {
+                    console.log("🛑 Đã TẮT Proxy (Sử dụng mạng gốc Wi-Fi).");
+                    addLog("🌐 Đã TẮT Proxy (Trở về sử dụng mạng gốc Wi-Fi)");
+                });
+            }
+        } catch (e) {
+            console.error("Lỗi Proxy:", e);
         }
-    } catch (e) {}
+    });
 }
+
+// Gọi kết nối Proxy khi khởi động
+applyProxyFromStorage();
 
 // ĐĂNG KÝ ALARM TELEGRAM POLL (thay setInterval để không bị Chrome sleep)
 chrome.alarms.get('telegramPoll', (existing) => {
@@ -308,6 +316,11 @@ function processNextStep() {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "updateProxySettings") {
+        applyProxyFromStorage();
+        return;
+    }
+
     if (request.action === "ping") {
         sendResponse({ status: "alive" });
         return;

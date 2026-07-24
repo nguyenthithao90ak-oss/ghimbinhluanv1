@@ -219,17 +219,41 @@ document.getElementById('btnSaveTele').addEventListener('click', () => {
     });
 });
 
-// KHÔI PHỤC CẤU HÌNH TELEGRAM KHI MỞ TAB
-function loadTeleConfig() {
-    chrome.storage.local.get(['teleBotToken', 'teleChatId'], (st) => {
-        if (st.teleBotToken) document.getElementById('teleBotToken').value = st.teleBotToken;
-        if (st.teleChatId) document.getElementById('teleChatId').value = st.teleChatId;
+// LƯU CẤU HÌNH PROXY
+document.getElementById('btnSaveProxy').addEventListener('click', () => {
+    const enabled = document.getElementById('proxyEnable').checked;
+    const host = document.getElementById('proxyHost').value.trim();
+    const port = parseInt(document.getElementById('proxyPort').value.trim()) || 49064;
+    const username = document.getElementById('proxyUser').value.trim();
+    const password = document.getElementById('proxyPass').value.trim();
+
+    chrome.storage.local.set({
+        proxyEnable: enabled,
+        proxyHost: host,
+        proxyPort: port,
+        proxyUser: username,
+        proxyPass: password
+    }, () => {
+        chrome.runtime.sendMessage({ action: "updateProxySettings" });
+        alert(enabled ? `✅ ĐÃ BẬT PROXY (${host}:${port})!` : '🛑 ĐÃ TẮT PROXY (DÙNG MẠNG GỐC WI-FI)!');
+    });
+});
+
+function loadProxyConfig() {
+    chrome.storage.local.get(['proxyEnable', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
+        const enabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
+        document.getElementById('proxyEnable').checked = enabled;
+        document.getElementById('proxyHost').value = st.proxyHost || "103.162.30.61";
+        document.getElementById('proxyPort').value = st.proxyPort || 49064;
+        document.getElementById('proxyUser').value = st.proxyUser || "user49064";
+        document.getElementById('proxyPass').value = st.proxyPass || "Gd6O4RL1gK";
     });
 }
 
-// Khởi chạy khi tab được mở
+// KHÔI PHỤC CẤU HÌNH KHI MỞ TAB
 document.getElementById('tabConfigBtn').addEventListener('click', () => {
     loadTeleConfig();
+    loadProxyConfig();
 });
 
 // Hàm nén ảnh tự động trước khi lưu
