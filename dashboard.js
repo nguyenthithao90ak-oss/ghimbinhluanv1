@@ -220,6 +220,49 @@ function renderDashboardLogs() {
     });
 }
 
+function renderProgressTracker() {
+    chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'currentConfigIndex'], (state) => {
+        const container = document.getElementById('dashProgressList');
+        if (!container) return;
+
+        if (!state.isBotRunning || !state.targetConfigs || state.targetConfigs.length === 0) {
+            container.innerHTML = '<div style="font-size:13px; color:#888;">Chưa có dữ liệu tiến độ. Bấm chạy Auto để theo dõi.</div>';
+            return;
+        }
+
+        const configs = state.targetConfigs;
+        const curIdx = state.currentConfigIndex;
+
+        let html = '';
+        configs.forEach((cfg, idx) => {
+            let statusStyle = '';
+            let icon = '';
+            if (idx < curIdx) {
+                // Đã chạy qua (Có thể thành công hoặc lag)
+                statusStyle = 'background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7;';
+                icon = '✅';
+            } else if (idx === curIdx) {
+                // Đang chạy
+                statusStyle = 'background: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-weight: bold; box-shadow: 0 0 5px rgba(255,193,7,0.5);';
+                icon = '🔄';
+            } else {
+                // Đang chờ
+                statusStyle = 'background: #f8f9fa; color: #6c757d; border: 1px solid #dee2e6; opacity: 0.7;';
+                icon = '⏳';
+            }
+
+            html += `
+                <div style="padding: 4px 8px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; ${statusStyle}">
+                    <span>${icon}</span>
+                    <span style="max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cfg.pageName}</span>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    });
+}
+
 // RENDER LỊCH SỬ PHÂN THEO CÁC PHIÊN CHẠY
 function renderDashboardHistory() {
     chrome.storage.local.get(['sessionHistory', 'runHistory'], (res) => {
@@ -422,6 +465,10 @@ document.getElementById('dashBackupFileInput').addEventListener('change', (e) =>
 // INIT DASHBOARD
 loadDashboardConfigs();
 renderDashboardLogs();
+renderProgressTracker();
 renderDashboardHistory();
-setInterval(renderDashboardLogs, 1500);
+setInterval(() => {
+    renderDashboardLogs();
+    renderProgressTracker();
+}, 1500);
 setInterval(renderDashboardHistory, 3000);

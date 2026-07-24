@@ -45,6 +45,35 @@ document.getElementById('runMode').addEventListener('change', (e) => {
     }
 });
 
+document.getElementById('loopStrategy').addEventListener('change', (e) => {
+    const delayGrp = document.getElementById('loopDelayGroup');
+    if (e.target.value === 'DELAY') {
+        delayGrp.style.display = 'block';
+    } else {
+        delayGrp.style.display = 'none';
+    }
+    chrome.storage.local.set({ 
+        loopStrategy: e.target.value 
+    });
+});
+
+document.getElementById('loopDelayMinutes').addEventListener('input', (e) => {
+    chrome.storage.local.set({ 
+        loopDelayMinutes: parseInt(e.target.value) || 30 
+    });
+});
+
+// Phục hồi trạng thái select box khi mở popup
+chrome.storage.local.get(['loopStrategy', 'loopDelayMinutes'], (st) => {
+    if (st.loopStrategy) {
+        document.getElementById('loopStrategy').value = st.loopStrategy;
+        document.getElementById('loopDelayGroup').style.display = (st.loopStrategy === 'DELAY') ? 'block' : 'none';
+    }
+    if (st.loopDelayMinutes) {
+        document.getElementById('loopDelayMinutes').value = st.loopDelayMinutes;
+    }
+});
+
 function loadRunPageOptions() {
     chrome.storage.local.get(['pageConfigs'], (result) => {
         const configs = result.pageConfigs || [];
@@ -165,6 +194,28 @@ function loadConfigs() {
         });
     });
 }
+
+// LƯU CẤU HÌNH TELEGRAM
+document.getElementById('btnSaveTele').addEventListener('click', () => {
+    const token = document.getElementById('teleBotToken').value.trim();
+    const chatId = document.getElementById('teleChatId').value.trim();
+    chrome.storage.local.set({ teleBotToken: token, teleChatId: chatId }, () => {
+        alert('✅ Đã lưu cấu hình gửi báo cáo Telegram!');
+    });
+});
+
+// KHÔI PHỤC CẤU HÌNH TELEGRAM KHI MỞ TAB
+function loadTeleConfig() {
+    chrome.storage.local.get(['teleBotToken', 'teleChatId'], (st) => {
+        if (st.teleBotToken) document.getElementById('teleBotToken').value = st.teleBotToken;
+        if (st.teleChatId) document.getElementById('teleChatId').value = st.teleChatId;
+    });
+}
+
+// Khởi chạy khi tab được mở
+document.getElementById('tabConfigBtn').addEventListener('click', () => {
+    loadTeleConfig();
+});
 
 // Hàm nén ảnh tự động trước khi lưu
 function compressImage(file) {

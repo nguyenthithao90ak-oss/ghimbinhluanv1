@@ -13,7 +13,8 @@
     "alarms"
   ],
   "host_permissions": [
-    "*://*.facebook.com/*"
+    "*://*.facebook.com/*",
+    "*://api.telegram.org/*"
   ],
   "background": {
     "service_worker": "background.js"

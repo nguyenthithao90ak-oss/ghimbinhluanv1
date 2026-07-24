@@ -143,7 +143,7 @@ async function retryFindAndClick(findFn, description, maxRetries = 3, waitSec = 
 // XỬ LÝ 1 VIDEO REELS
 async function processSingleReel(cfg, targetPageName) {
     // 3. BẤM NÚT BÌNH LUẬN
-    await delay(2, 3);
+    await delay(1, 3);
     const cmtOk = await retryFindAndClick(
         () => {
             for (let el of document.querySelectorAll('*')) {
@@ -157,21 +157,26 @@ async function processSingleReel(cfg, targetPageName) {
     if (!cmtOk) return false;
 
     // 3.5. KIỂM TRA BÌNH LUẬN CÓ BỊ LAG / SPINNER XOAY TRÒN KHÔNG
-    await delay(2, 3);
+    await delay(1, 3);
     logMsg("🔍 Kiểm tra xem ô bình luận có bị lag (Spinner xoay) không...");
     let isLagging = false;
     
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
         // Kiểm tra xem ô nhập bình luận thực sự có xuất hiện trên màn hình không
         const visibleInput = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"]')).find(el => {
             const r = el.getBoundingClientRect();
             return r.width > 50 && r.height > 15 && r.top > 0 && r.top < window.innerHeight;
         });
 
-        // Kiểm tra xem có icon spinner xoay tròn đang xoay không
-        const spinner = Array.from(document.querySelectorAll('div[role="progressbar"], svg[aria-label*="loading"], svg[aria-label*="Đang tải"], [class*="spinner"], [class*="loading"]')).find(el => {
-            const r = el.getBoundingClientRect();
-            return r.width > 10 && r.height > 10 && r.top > 50 && r.top < window.innerHeight - 50;
+        // Nhận diện Spinner dựa trên HTML thực tế của m.facebook.com (thường là svg chứa circle)
+        const spinner = Array.from(document.querySelectorAll('div[role="progressbar"], svg circle')).some(el => {
+            const target = el.tagName.toLowerCase() === 'circle' ? el.closest('svg') : el;
+            if (target) {
+                const r = target.getBoundingClientRect();
+                // Spinner thường nằm lơ lửng ở giữa màn hình
+                return r.width >= 15 && r.width <= 100 && r.height >= 15 && r.height <= 100 && r.top > 100 && r.top < window.innerHeight - 100;
+            }
+            return false;
         });
 
         const hasComments = Array.from(document.querySelectorAll('div[role="article"]')).some(el => {
@@ -185,7 +190,7 @@ async function processSingleReel(cfg, targetPageName) {
             isLagging = false;
             break;
         }
-        await delay(1, 2);
+        await delay(1, 3);
     }
 
     if (isLagging) {
@@ -242,7 +247,7 @@ async function processSingleReel(cfg, targetPageName) {
 
     // Chờ 3 lần cho Facebook nạp đầy đủ bình luận
     for (let attempt = 1; attempt <= 3; attempt++) {
-        await delay(2, 2);
+        await delay(1, 3);
 
         const { foundName, foundContent, foundPin } = scanFullPageForExistingComment();
         logMsg(`🔎 [Lần ${attempt}/3] Tên Nick="${foundName}", Nội dung mẫu="${foundContent}", Nút Ghim="${foundPin}"`);
@@ -276,7 +281,7 @@ async function processSingleReel(cfg, targetPageName) {
             }),
             'Nút Camera/Ảnh', 3, 2
         );
-        await delay(1, 2);
+        await delay(1, 3);
 
         let fileInput = await retryFind(
             () => document.querySelector('input[type="file"]') || Array.from(document.querySelectorAll('input')).find(i => i.type === 'file'),
@@ -291,7 +296,7 @@ async function processSingleReel(cfg, targetPageName) {
                 fileInput.dispatchEvent(new Event('input', { bubbles: true }));
                 fileInput.dispatchEvent(new Event('change', { bubbles: true }));
                 logMsg("✅ Đã nạp ảnh!");
-                await delay(2, 3);
+                await delay(1, 3);
 
                 await retryFindAndClick(
                     () => findClickableElement('Upload photo') || findClickableElement('Tải ảnh lên') || findClickableElement('Upload') || findClickableElement('Tải lên'),
@@ -306,7 +311,7 @@ async function processSingleReel(cfg, targetPageName) {
     }
 
     // 6. GÕ TEXT
-    await delay(1, 2);
+    await delay(1, 3);
     logMsg("⌨️ Gõ bình luận...");
     const input = await retryFind(
         () => document.querySelector('textarea, div[contenteditable="true"], div[aria-label*="bình luận"], div[aria-label*="comment"]'),
@@ -314,11 +319,11 @@ async function processSingleReel(cfg, targetPageName) {
     );
     if (input) {
         await typeHumanText(input, cfg.commentText);
-        await delay(1, 2);
+        await delay(1, 3);
     }
 
     // 7. BẤM GỬI
-    await delay(1, 2);
+    await delay(1, 3);
     logMsg("👉 Bấm Gửi...");
     const sendOk = await retryFindAndClick(
         () => {
@@ -376,7 +381,7 @@ async function processSingleReel(cfg, targetPageName) {
     );
 
     if (dotsOk) {
-        await delay(1, 2);
+        await delay(1, 3);
         const unpinItem = findClickableElement('Unpin comment') || findClickableElement('Unpin') || findClickableElement('Bỏ ghim bình luận') || findClickableElement('Bỏ ghim');
         if (unpinItem) {
             logMsg(`✅ Đã ghim sẵn! Không gỡ.`);
@@ -421,7 +426,7 @@ function getFacebookProfileNameStrict() {
 async function runChecking(pageConfigs, targetPageName) {
     try {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
-        await delay(2, 3);
+        await delay(1, 3);
         
         // 0. ĐỌC TÊN NICK CHUẨN XÁC VÙNG HEADER
         let currentPageName = getFacebookProfileNameStrict();
@@ -437,7 +442,7 @@ async function runChecking(pageConfigs, targetPageName) {
         }
 
         // 1. BẤM TAB REELS
-        await delay(2, 3);
+        await delay(1, 3);
         const reelsOk = await retryFindAndClick(
             () => findClickableElement('Reels'),
             'Tab Reels', 3, 2
@@ -448,7 +453,7 @@ async function runChecking(pageConfigs, targetPageName) {
         }
 
         // 2. LẤY DANH SÁCH VIDEO REELS ĐẦU TIÊN ĐỂ XỬ LÝ
-        await delay(2, 3);
+        await delay(1, 3);
         logMsg("🔍 Đang lấy danh sách Video Reels...");
         
         let reelLinks = [];
@@ -543,7 +548,7 @@ async function runChecking(pageConfigs, targetPageName) {
                     const topCornerEl = document.elementFromPoint(25, 25);
                     if (topCornerEl) await safeClick(topCornerEl);
                 }
-                await delay(3, 4);
+                await delay(1, 3);
 
                 // BƯỚC 2: Thoát khỏi Video Reels để ra ngoài lưới
                 logMsg("Đang thoát Video Reels để ra ngoài...");
@@ -562,11 +567,11 @@ async function runChecking(pageConfigs, targetPageName) {
                 }
                 
                 logMsg("⏳ Chờ 6-8s cho lưới Reels load lại...");
-                await delay(6, 8);
+                await delay(1, 3);
                 
                 // Cuộn xuống một chút để thấy video tiếp theo rõ hơn
                 window.scrollBy({ top: 150, behavior: 'smooth' });
-                await delay(2, 3);
+                await delay(1, 3);
             }
         }
         
