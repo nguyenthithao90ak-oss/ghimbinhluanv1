@@ -52,14 +52,44 @@ function logMsg(msg) {
     } catch (e) {}
 }
 
+function cleanName(str) {
+    if (!str) return '';
+    return str.toString()
+        .normalize('NFC')
+        .toLowerCase()
+        .replace(/[\u00a0\u200b\r\n\t]+/g, ' ')
+        .replace(/[.,\-_/\\]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function isNameMatch(profileName, targetName) {
     if (!profileName || !targetName) return false;
-    let a = profileName.toLowerCase().replace(/\.\.\./g, '').replace(/…/g, '').trim();
-    let b = targetName.toLowerCase().trim();
+    const a = cleanName(profileName);
+    const b = cleanName(targetName);
+    
+    // 1. Khớp chính xác 100%
     if (a === b) return true;
-    if (a.includes(b) || b.includes(a)) return true;
-    const minLen = Math.min(a.length, b.length, 10);
-    if (minLen >= 5 && a.substring(0, minLen) === b.substring(0, minLen)) return true;
+    
+    // 2. Tách từ so sánh chuẩn từng từ
+    const wordsA = a.split(' ').filter(w => w.length > 0);
+    const wordsB = b.split(' ').filter(w => w.length > 0);
+
+    if (wordsA.length === wordsB.length) {
+        let matchCount = 0;
+        for (let i = 0; i < wordsA.length; i++) {
+            if (wordsA[i] === wordsB[i]) matchCount++;
+        }
+        return (matchCount / wordsA.length) >= 0.9;
+    }
+
+    if (a.length > 5 && b.length > 5) {
+        const lengthDiff = Math.abs(a.length - b.length);
+        if (lengthDiff <= 4 && (a.includes(b) || b.includes(a))) {
+            return true;
+        }
+    }
+
     return false;
 }
 
