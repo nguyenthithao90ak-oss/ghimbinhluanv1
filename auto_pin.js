@@ -317,19 +317,20 @@ async function processSingleReel(cfg, targetPageName) {
     logMsg("🔍 Quét TOÀN MÀN HÌNH kiểm tra (Tên Nick + Nội dung mẫu + Nút ghim)...");
     let isAlreadyDone = false;
 
-    // Hàm nắn chuẩn hóa Tiếng Việt (chuyển chữ thường, xóa khoảng trắng thừa, xóa unicode khác biệt)
+    // Hàm nắn chuẩn hóa Tiếng Việt (chuyển chữ thường, xóa khoảng trắng thừa, xóa unicode khác biệt & OBJ)
     function cleanText(str) {
         if (!str) return '';
         return str.toString()
             .normalize('NFC')
             .toLowerCase()
-            .replace(/[\u00a0\u200b\r\n\t]+/g, ' ')
+            .replace(/[\u00a0\u200b\r\n\t\uFFFC\uFFFD]+/g, ' ')
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
             .replace(/\s+/g, ' ')
             .trim();
     }
 
     function scanFullPageForExistingComment() {
-        if (!document.body) return { foundName: false, foundContent: false, foundPin: false };
+        if (!document.body) return { foundName: false, foundContent: false, foundPin: false, isEmpty: false };
         
         // 0. KIỂM TRA BÀI VIẾT CHƯA CÓ BÌNH LUẬN NÀO ("No comments yet" / "Chưa có bình luận nào")
         const rawTextLower = (document.body.innerText || '').toLowerCase();
@@ -340,37 +341,69 @@ async function processSingleReel(cfg, targetPageName) {
             return { foundName: false, foundContent: false, foundPin: false, isEmpty: true };
         }
 
-        // Xóa tạm các ô nhập liệu (input, placeholder "Comment as...") để không soi nhầm tên Nick nằm trong ô nhập
+        // Lấy text của toàn màn hình nhưng LOẠI TRỪ text nằm trong ô nhập liệu (textarea, contenteditable)
+        // Tuyệt đối KHÔNG xóa thẻ 'form' hay 'div' container vì sẽ làm mất luôn nội dung bình luận!
         const bodyClone = document.body.cloneNode(true);
-        const inputs = bodyClone.querySelectorAll('input, textarea, [contenteditable="true"], [placeholder], form, [role="textbox"]');
-        inputs.forEach(el => el.remove());
-
+        const inputElements = bodyClone.querySelectorAll('textarea, input[type="text"], div[contenteditable="true"]');
+        inputElements.forEach(el => el.remove());
         const fullPageText = cleanText(bodyClone.innerText || '');
+
         const targetNameClean = cleanText(targetPageName);
         
-        // Lấy 8 ký tự đầu của nội dung mẫu để so khớp (lọc bỏ ký tự spintax nếu có)
-        let cleanPattern = (cfg && cfg.commentText) ? cfg.commentText.replace(/\{.*?\}/g, '') : '';
-        const commentSnippet = cleanText(cleanPattern).substring(0, 8);
-
-        // 1. So khớp Tên Nick trên phần danh sách bình luận (đã loại bỏ ô nhập)
-        let foundName = targetNameClean.length > 0 && fullPageText.includes(targetNameClean);
-
-        if (!foundName && targetNameClean.length > 3) {
-            const words = targetNameClean.split(' ').filter(w => w.length >= 2);
-            if (words.length >= 2) {
-                const matchedWords = words.filter(w => fullPageText.includes(w));
-                if (matchedWords.length / words.length >= 0.75) {
-                    foundName = true;
+        // 1. So khớp Tên Nick trên danh sách bình luận
+        let foundName = false;
+        if (targetNameClean.length > 0) {
+            if (fullPageText.includes(targetNameClean)) {
+                foundName = true;
+            } else if (targetNameClean.length > 3) {
+                const words = targetNameClean.split(' ').filter(w => w.length >= 2);
+                if (words.length >= 2) {
+                    const matchedWords = words.filter(w => fullPageText.includes(w));
+                    if (matchedWords.length / words.length >= 0.75) {
+                        foundName = true;
+                    }
                 }
             }
         }
 
-        // 2. So khớp Nội dung comment mẫu trên màn hình
-        const foundContent = commentSnippet.length >= 4 && fullPageText.includes(commentSnippet);
+        // 2. So khớp Nội dung comment mẫu (link URL hoặc từ khóa chính trong cfg.commentText)
+        let foundContent = false;
+        if (cfg && cfg.commentText) {
+            // Lấy tất cả đường link (https://...) trong commentText
+            const urlMatches = cfg.commentText.match(/https?:\/\/[^\s{}|]+/g);
+            if (urlMatches && urlMatches.length > 0) {
+                for (const url of urlMatches) {
+                    const cleanUrl = cleanText(url);
+                    if (cleanUrl.length >= 6 && fullPageText.includes(cleanUrl)) {
+                        foundContent = true;
+                        break;
+                    }
+                }
+            }
 
-        // 3. So khớp Biểu tượng ghim 📌 hoặc chữ "đã ghim"
-        const foundPin = fullPageText.includes('📌') || fullPageText.includes('đã ghim') || fullPageText.includes('pinned') ||
-                         document.querySelector('svg[aria-label*="ghim"], i[aria-label*="ghim"], [title*="ghim"]') !== null;
+            // Nếu chưa thấy link, trích xuất các từ khóa đặc trưng (dài >= 3 ký tự, không chứa ký tự spintax)
+            if (!foundContent) {
+                const textWithoutSpintax = cfg.commentText.replace(/[{}]/g, ' ').replace(/\|/g, ' ');
+                const keywords = cleanText(textWithoutSpintax).split(' ').filter(w => w.length >= 3);
+                if (keywords.length > 0) {
+                    const matched = keywords.filter(w => fullPageText.includes(w));
+                    if (keywords.length <= 3 ? matched.length >= 2 : (matched.length / keywords.length >= 0.5)) {
+                        foundContent = true;
+                    }
+                }
+            }
+        }
+
+        // 3. So khớp Biểu tượng ghim 📌, chữ "đã ghim", hoặc nút menu [Comment menu] đã ghim
+        let foundPin = fullPageText.includes('đã ghim') || fullPageText.includes('pinned') || fullPageText.includes('📌');
+        if (!foundPin) {
+            foundPin = Array.from(document.querySelectorAll('svg, i, span, div, img')).some(el => {
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const title = (el.getAttribute('title') || '').toLowerCase();
+                const alt = (el.getAttribute('alt') || '').toLowerCase();
+                return aria.includes('ghim') || aria.includes('pinned') || title.includes('ghim') || alt.includes('ghim');
+            });
+        }
 
         return { foundName, foundContent, foundPin, isEmpty: false };
     }
@@ -387,8 +420,8 @@ async function processSingleReel(cfg, targetPageName) {
             break;
         }
         
-        if (foundName && (foundContent || foundPin)) {
-            logMsg(`ℹ️ [Lần ${attempt}/5] XÁC NHẬN: Đã thấy nội dung ghim của Nick "${targetPageName}" trên màn hình! -> Bỏ qua video này!`);
+        if (foundContent || foundPin || (foundName && (foundContent || foundPin))) {
+            logMsg(`ℹ️ [Lần ${attempt}/5] XÁC NHẬN: Đã thấy bình luận/ghim cũ trên màn hình (Tên Nick=${foundName}, Nội dung=${foundContent}, Ghim=${foundPin})! -> Bỏ qua video này!`);
             isAlreadyDone = true;
             break;
         } else {
