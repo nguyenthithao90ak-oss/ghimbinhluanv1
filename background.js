@@ -23,8 +23,8 @@ function applyProxyFromStorage() {
                     addLog(`🌐 Đã BẬT Proxy: ${host}:${port}`);
                 });
 
-                if (!window.__proxyAuthListenerAdded) {
-                    window.__proxyAuthListenerAdded = true;
+                if (!self.__proxyAuthListenerAdded) {
+                    self.__proxyAuthListenerAdded = true;
                     chrome.webRequest.onAuthRequired.addListener(
                         (details, callbackFn) => {
                             chrome.storage.local.get(['proxyUser', 'proxyPass'], (pSt) => {
