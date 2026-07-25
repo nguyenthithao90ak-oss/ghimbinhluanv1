@@ -1,3 +1,21 @@
+const DEFAULT_PRESET_PAGES = [
+    { pageName: "Vựa trái cây cô năm", commentText: "Em xả hàng sầu riêng tại đây https://mua-do-re.web.app/saurieng", imageData: "" },
+    { pageName: "Vựa Trái Cây Cô Út", commentText: "Em xả hàng măng cụt tại đây https://mua-do-re.web.app/mangcut", imageData: "" },
+    { pageName: "Kho Sỉ Đồ Bộ Pijama", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
+    { pageName: "Kho hàng gia dụng giá rẻ", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
+    { pageName: "cửa hàng gia dụng", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
+    { pageName: "Kho sỉ quần áo", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
+    { pageName: "Trinh Shop Đồ Bộ Giá Rẻ", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
+    { pageName: "Xưởng May Pizama Giá Rẻ", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
+    { pageName: "Xưởng May Đồ Bộ Cao Cấp", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
+    { pageName: "Xưởng May Pijama Cao Cấp", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
+    { pageName: "Quần ống rộng giá xưởng", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
+    { pageName: "Kho hàng thời trang nam nữ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
+    { pageName: "Fashion House Nam Nữ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
+    { pageName: "Kho hàng gia dụng", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
+    { pageName: "trái câu cô năm", commentText: "Em xả hàng sầu riêng tại đây https://mua-do-re.web.app/saurieng", imageData: "" }
+];
+
 let currentDashImageData = null;
 
 function compressImage(file) {
@@ -92,10 +110,28 @@ document.getElementById('btnDashRemoveImg').addEventListener('click', () => {
     hideDashImgPreview();
 });
 
+const btnDashLoadPresets = document.getElementById('btnDashLoadPresets');
+if (btnDashLoadPresets) {
+    btnDashLoadPresets.addEventListener('click', () => {
+        if (confirm("🎉 Bạn có muốn nạp toàn bộ 15 Page mẫu sẵn có vào hệ thống?")) {
+            chrome.storage.local.set({ pageConfigs: DEFAULT_PRESET_PAGES }, () => {
+                loadDashboardConfigs();
+                alert("✅ Đã nạp thành công 15 Page mẫu vào cấu hình!");
+            });
+        }
+    });
+}
+
 // LOAD KHUNG MẪU ĐÃ LƯU
 function loadDashboardConfigs() {
     chrome.storage.local.get(['pageConfigs'], (result) => {
-        const configs = result.pageConfigs || [];
+        let configs = result.pageConfigs || [];
+
+        if (configs.length === 0) {
+            configs = DEFAULT_PRESET_PAGES;
+            chrome.storage.local.set({ pageConfigs: configs });
+        }
+
         const container = document.getElementById('dashConfigList');
         document.getElementById('statTotalConfigs').innerText = configs.length;
 
