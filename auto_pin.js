@@ -201,17 +201,33 @@ async function retryFindAndClick(findFn, description, maxRetries = 3, waitSec = 
 
 // XỬ LÝ 1 VIDEO REELS
 async function processSingleReel(cfg, targetPageName) {
-    // 3. BẤM NÚT BÌNH LUẬN
+    // 3. BẤM NÚT BÌNH LUẬN (SELECTOR MULTI-LAYER THÔNG MINH)
     await delay(1, 3);
     const cmtOk = await retryFindAndClick(
         () => {
-            for (let el of document.querySelectorAll('*')) {
-                const aria = el.getAttribute('aria-label');
-                if (aria && (aria.toLowerCase().includes('bình luận') || aria.toLowerCase().includes('comment'))) return el;
+            // Lớp 1: Element hiển thị thực tế có aria-label / title chứa 'bình luận' hoặc 'comment'
+            const visibleBtns = Array.from(document.querySelectorAll('button, a, div[role="button"], i, svg, span, div')).filter(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0 || rect.top < 0 || rect.top > window.innerHeight) return false;
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const title = (el.getAttribute('title') || '').toLowerCase();
+                return aria.includes('bình luận') || aria.includes('comment') || title.includes('bình luận') || title.includes('comment');
+            });
+
+            if (visibleBtns.length > 0) {
+                // Ưu tiên phần tử nhỏ nhất (leaf node) hoặc role="button"
+                visibleBtns.sort((a, b) => (a.clientWidth * a.clientHeight) - (b.clientWidth * b.clientHeight));
+                const exactRoleBtn = visibleBtns.find(b => b.getAttribute('role') === 'button' || b.tagName === 'BUTTON');
+                return exactRoleBtn || visibleBtns[0];
             }
-            return null;
+
+            // Lớp 2: Quét các nút có icon comment SVG hoặc chữ 'Bình luận' / 'Comment'
+            return findClickableElement('Bình luận') || 
+                   findClickableElement('Comment') || 
+                   findClickableElement('Viết bình luận...') ||
+                   findClickableElement('Write a comment...');
         },
-        'Nút Bình luận', 3, 2
+        'Nút Bình luận (Multi-layer Selector)', 4, 2
     );
     if (!cmtOk) return false;
 
@@ -431,13 +447,31 @@ async function processSingleReel(cfg, targetPageName) {
         }
     }
 
-    // 6. GÕ TEXT
+    // 6. GÕ TEXT (MULTI-LAYER INPUT FINDER)
     await delay(1, 3);
     logMsg("⌨️ Gõ bình luận...");
     const input = await retryFind(
-        () => document.querySelector('textarea, div[contenteditable="true"], div[aria-label*="bình luận"], div[aria-label*="comment"]'),
-        'Ô nhập bình luận', 3, 2
+        () => {
+            // Lớp 1: Tìm ô nhập hiển thị thực tế
+            const visibleInputs = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"]')).filter(el => {
+                const r = el.getBoundingClientRect();
+                return r.width > 50 && r.height > 15 && r.top >= 0 && r.top < window.innerHeight;
+            });
+            if (visibleInputs.length > 0) return visibleInputs[0];
+
+            // Lớp 2: Tìm theo aria-label hoặc placeholder chứa 'bình luận' / 'comment'
+            const ariaInputs = Array.from(document.querySelectorAll('div[role="textbox"], input, div')).filter(el => {
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0) return false;
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const ph = (el.getAttribute('placeholder') || '').toLowerCase();
+                return aria.includes('bình luận') || aria.includes('comment') || ph.includes('bình luận') || ph.includes('comment');
+            });
+            return ariaInputs.length > 0 ? ariaInputs[0] : null;
+        },
+        'Ô nhập bình luận (Multi-layer)', 4, 2
     );
+
     if (input) {
         const spunText = parseSpintax(cfg.commentText);
         logMsg(`💬 Nội dung ngẫu nhiên (Spintax): "${spunText}"`);
@@ -445,23 +479,32 @@ async function processSingleReel(cfg, targetPageName) {
         await delay(1, 3);
     }
 
-    // 7. BẤM GỬI
+    // 7. BẤM GỬI (MULTI-LAYER SEND BUTTON)
     await delay(1, 3);
     logMsg("👉 Bấm Gửi...");
     const sendOk = await retryFindAndClick(
         () => {
-            let btn = document.querySelector('div[aria-label*="Gửi"], div[aria-label*="Send"], div[aria-label*="Đăng"], div[aria-label*="Post"]');
-            if (!btn) {
-                const btns = Array.from(document.querySelectorAll('div[role="button"], svg')).filter(el => {
-                    const r = el.getBoundingClientRect();
-                    return r.width > 15 && r.height > 15 && r.top > window.innerHeight - 150;
-                });
-                if (btns.length > 0) btn = btns[btns.length - 1];
-            }
-            if (!btn) btn = findClickableElement('Đăng') || findClickableElement('Post') || findClickableElement('Gửi');
-            return btn;
+            // Lớp 1: Nút có aria-label hoặc title chứa Gửi / Send / Đăng / Post
+            const ariaBtns = Array.from(document.querySelectorAll('div, button, a, svg, span')).filter(el => {
+                const r = el.getBoundingClientRect();
+                if (r.width < 10 || r.height < 10 || r.top > window.innerHeight) return false;
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const title = (el.getAttribute('title') || '').toLowerCase();
+                return aria.includes('gửi') || aria.includes('send') || aria.includes('đăng') || aria.includes('post') || title.includes('gửi') || title.includes('send');
+            });
+            if (ariaBtns.length > 0) return ariaBtns[ariaBtns.length - 1];
+
+            // Lớp 2: Icon mũi tên gửi ở góc dưới bên phải màn hình
+            const cornerBtns = Array.from(document.querySelectorAll('div[role="button"], svg, button')).filter(el => {
+                const r = el.getBoundingClientRect();
+                return r.width > 15 && r.height > 15 && r.top > window.innerHeight - 150 && r.left > window.innerWidth - 120;
+            });
+            if (cornerBtns.length > 0) return cornerBtns[cornerBtns.length - 1];
+
+            // Lớp 3: Tìm theo chữ
+            return findClickableElement('Đăng') || findClickableElement('Post') || findClickableElement('Gửi') || findClickableElement('Send');
         },
-        'Nút Gửi bình luận', 3, 2
+        'Nút Gửi bình luận (Multi-layer)', 4, 2
     );
     if (sendOk) logMsg("🚀 ĐÃ GỬI BÌNH LUẬN!");
 
@@ -469,19 +512,15 @@ async function processSingleReel(cfg, targetPageName) {
     logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
     await delay(5, 7);
 
-    // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM
+    // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM (MULTI-LAYER 3-DOTS MENU)
     logMsg("🔍 Tìm nút 3 chấm [Comment menu]...");
     const dotsOk = await retryFindAndClick(
         () => {
-            const exactBtns = Array.from(document.querySelectorAll('div[role="button"][aria-label="Comment menu"]'));
+            // Lớp 1: Khớp chính xác aria-label
+            const exactBtns = Array.from(document.querySelectorAll('div[role="button"][aria-label="Comment menu"], [aria-label*="menu bình luận"], [aria-label*="tùy chọn"]'));
             if (exactBtns.length > 0) return exactBtns[0];
 
-            const fuzzyBtns = Array.from(document.querySelectorAll('div[role="button"]')).filter(el => {
-                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-                return aria.includes('comment menu') || aria.includes('menu bình luận') || aria.includes('tùy chọn bình luận');
-            });
-            if (fuzzyBtns.length > 0) return fuzzyBtns[0];
-
+            // Lớp 2: Tìm xung quanh đoạn text comment mới đăng
             const myText = Array.from(document.querySelectorAll('span, div, p')).find(el =>
                 el.innerText && el.innerText.trim().toLowerCase().includes(cfg.commentText.substring(0, 10).toLowerCase())
             );
@@ -489,11 +528,11 @@ async function processSingleReel(cfg, targetPageName) {
                 let parent = myText;
                 for (let d = 0; d < 6; d++) {
                     if (!parent || parent === document.body) break;
-                    const btn = Array.from(parent.querySelectorAll('div[role="button"], i, svg, span')).find(b => {
+                    const btn = Array.from(parent.querySelectorAll('div[role="button"], i, svg, span, button')).find(b => {
                         const r = b.getBoundingClientRect();
                         const aria = (b.getAttribute('aria-label') || '').toLowerCase();
                         const txt = (b.innerText || '').trim();
-                        return r.width > 0 && r.height > 0 && (aria.includes('menu') || txt === '...' || txt === '•••');
+                        return r.width > 0 && r.height > 0 && (aria.includes('menu') || aria.includes('option') || txt === '...' || txt === '•••');
                     });
                     if (btn) return btn;
                     parent = parent.parentElement;
@@ -501,7 +540,7 @@ async function processSingleReel(cfg, targetPageName) {
             }
             return null;
         },
-        'Nút [Comment menu]', 3, 2
+        'Nút [Comment menu] (Multi-layer)', 4, 2
     );
 
     if (dotsOk) {
@@ -511,8 +550,15 @@ async function processSingleReel(cfg, targetPageName) {
             logMsg(`✅ Đã ghim sẵn! Không gỡ.`);
         } else {
             const pinOk = await retryFindAndClick(
-                () => findClickableElement('Pin comment') || findClickableElement('Pin') || findClickableElement('Ghim bình luận') || findClickableElement('Ghim'),
-                'Nút Pin comment', 3, 2
+                () => findClickableElement('Pin comment') || 
+                       findClickableElement('Pin') || 
+                       findClickableElement('Ghim bình luận') || 
+                       findClickableElement('Ghim') ||
+                       Array.from(document.querySelectorAll('div, span, button')).find(el => {
+                           const txt = (el.innerText || '').trim().toLowerCase();
+                           return txt === 'ghim bình luận' || txt === 'pin comment' || txt === 'ghim';
+                       }),
+                'Nút Pin comment (Multi-layer)', 4, 2
             );
             if (pinOk) {
                 logMsg(`✅ ĐÃ BẤM GHIM! Đợi thêm 5 giây để Facebook ghi nhận...`);
