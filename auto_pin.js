@@ -610,12 +610,18 @@ async function runChecking(pageConfigs, targetPageName) {
             return;
         }
 
-        // CHỈ XỬ LÝ ĐÚNG 1 VIDEO ĐẦU TIÊN
-        const maxVideos = Math.min(1, reelLinks.length);
-        logMsg(`🎯 Tìm thấy các Reels, chỉ làm ĐÚNG 1 VIDEO ĐẦU TIÊN rồi chuyển Nick luôn.`);
+        // ĐỌC CẤU HÌNH SỐ VIDEO REELS CẦN XỬ LÝ MỖI PAGE (Mặc định = 2)
+        let reelsPerPageSetting = 2;
+        try {
+            const st = await new Promise(resolve => chrome.storage.local.get(['reelsPerPage'], resolve));
+            if (st && st.reelsPerPage) reelsPerPageSetting = parseInt(st.reelsPerPage) || 2;
+        } catch (e) {}
+
+        const maxVideos = Math.min(reelsPerPageSetting, reelLinks.length);
+        logMsg(`🎯 Tìm thấy các Reels, tiến hành xử lý ${maxVideos} VIDEO REELS cho Page "${targetPageName}"...`);
 
         for (let i = 0; i < maxVideos; i++) {
-            logMsg(`▶️▶️ ĐANG MỞ VÀ XỬ LÝ VIDEO THỨ ${i + 1}/${maxVideos}...`);
+            logMsg(`▶️▶️ [PAGE: ${targetPageName}] ĐANG MỞ VÀ XỬ LÝ VIDEO REELS THỨ ${i + 1}/${maxVideos}...`);
             
             // Tìm lại list links vì sau khi back từ video trước DOM có thể bị reset
             let currentList = [];
@@ -646,16 +652,14 @@ async function runChecking(pageConfigs, targetPageName) {
             const resSingle = await processSingleReel(cfg, targetPageName);
 
             if (resSingle === "ALREADY_EXISTS") {
-                logMsg(`ℹ️ ĐÃ CÓ BÀI ĐĂNG/GHIM SẴN TRÊN VIDEO NÀY! Chuẩn bị chuyển sang Page khác...`);
-                safeSendMessage({ action: "pageCompleted", alreadyExisted: true });
-                return;
+                logMsg(`ℹ️ [Video ${i + 1}/${maxVideos}] Đã có bài đăng/ghim sẵn trên video này!`);
+            } else if (resSingle) {
+                logMsg(`✅ [Video ${i + 1}/${maxVideos}] Đã đăng bài mới & ghim thành công!`);
             } else {
-                logMsg(`✅ ĐÃ ĐĂNG BÀI MỚI & GHIM THÀNH CÔNG CHO PAGE NÀY! Chuẩn bị chuyển sang Page khác...`);
-                safeSendMessage({ action: "pageCompleted", newlyPosted: true });
-                return;
+                logMsg(`⚠️ [Video ${i + 1}/${maxVideos}] Không thể hoàn tất ghim bài này.`);
             }
 
-            logMsg(`✅ XONG VIDEO THỨ ${i + 1}!`);
+            logMsg(`✅ HOÀN THÀNH VIDEO THỨ ${i + 1}/${maxVideos}!`);
 
             // NẾU CÒN VIDEO TIẾP THEO -> THOÁT RA LƯỚI REELS (BACK)
             if (i < maxVideos - 1) {

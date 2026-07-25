@@ -77,6 +77,10 @@ document.getElementById('runMode').addEventListener('change', (e) => {
     }
 });
 
+document.getElementById('reelsPerPage').addEventListener('change', (e) => {
+    chrome.storage.local.set({ reelsPerPage: parseInt(e.target.value) || 2 });
+});
+
 document.getElementById('loopStrategy').addEventListener('change', (e) => {
     const delayGrp = document.getElementById('loopDelayGroup');
     const scheduleGrp = document.getElementById('scheduleTimeGroup');
@@ -104,7 +108,10 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
 });
 
 // Phục hồi trạng thái select box khi mở popup
-chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes'], (st) => {
+chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'reelsPerPage'], (st) => {
+    if (st.reelsPerPage) {
+        document.getElementById('reelsPerPage').value = st.reelsPerPage;
+    }
     if (st.loopStrategy) {
         document.getElementById('loopStrategy').value = st.loopStrategy;
         document.getElementById('loopDelayGroup').style.display = (st.loopStrategy === 'DELAY') ? 'block' : 'none';
