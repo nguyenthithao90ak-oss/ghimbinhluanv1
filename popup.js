@@ -77,10 +77,6 @@ document.getElementById('runMode').addEventListener('change', (e) => {
     }
 });
 
-document.getElementById('reelsPerPage').addEventListener('change', (e) => {
-    chrome.storage.local.set({ reelsPerPage: parseInt(e.target.value) || 2 });
-});
-
 document.getElementById('loopStrategy').addEventListener('change', (e) => {
     const delayGrp = document.getElementById('loopDelayGroup');
     const scheduleGrp = document.getElementById('scheduleTimeGroup');

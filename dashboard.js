@@ -110,17 +110,6 @@ document.getElementById('btnDashRemoveImg').addEventListener('click', () => {
     hideDashImgPreview();
 });
 
-document.getElementById('dashReelsPerPage').addEventListener('change', (e) => {
-    chrome.storage.local.set({ reelsPerPage: parseInt(e.target.value) || 2 });
-});
-
-chrome.storage.local.get(['reelsPerPage'], (st) => {
-    if (st.reelsPerPage) {
-        const el = document.getElementById('dashReelsPerPage');
-        if (el) el.value = st.reelsPerPage;
-    }
-});
-
 const btnDashLoadPresets = document.getElementById('btnDashLoadPresets');
 if (btnDashLoadPresets) {
     btnDashLoadPresets.addEventListener('click', () => {

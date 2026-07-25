@@ -610,105 +610,45 @@ async function runChecking(pageConfigs, targetPageName) {
             return;
         }
 
-        // ĐỌC CẤU HÌNH SỐ VIDEO REELS CẦN XỬ LÝ MỖI PAGE (Mặc định = 2)
-        let reelsPerPageSetting = 2;
-        try {
-            const st = await new Promise(resolve => chrome.storage.local.get(['reelsPerPage'], resolve));
-            if (st && st.reelsPerPage) reelsPerPageSetting = parseInt(st.reelsPerPage) || 2;
-        } catch (e) {}
+        // CHỈ XỬ LÝ ĐÚNG 1 VIDEO ĐẦU TIÊN
+        logMsg(`🎯 Tìm thấy các Reels, tiến hành làm ĐÚNG 1 VIDEO ĐẦU TIÊN cho Page "${targetPageName}"...`);
 
-        const maxVideos = Math.min(reelsPerPageSetting, reelLinks.length);
-        logMsg(`🎯 Tìm thấy các Reels, tiến hành xử lý ${maxVideos} VIDEO REELS cho Page "${targetPageName}"...`);
+        let currentList = [];
+        await retryFind(() => {
+            let links = Array.from(document.querySelectorAll('a')).filter(a => 
+                a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/')
+            );
+            if (links.length > 0) { currentList = links; return true; }
+            let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
+                const r = img.getBoundingClientRect();
+                return r.width > 100 && r.height > 150;
+            });
+            if (imgs.length > 0) { currentList = imgs; return true; }
+            return false;
+        }, `Video Reels đầu tiên`, 3, 4);
 
-        for (let i = 0; i < maxVideos; i++) {
-            logMsg(`▶️▶️ [PAGE: ${targetPageName}] ĐANG MỞ VÀ XỬ LÝ VIDEO REELS THỨ ${i + 1}/${maxVideos}...`);
-            
-            // Tìm lại list links vì sau khi back từ video trước DOM có thể bị reset
-            let currentList = [];
-            await retryFind(() => {
-                let links = Array.from(document.querySelectorAll('a')).filter(a => 
-                    a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/')
-                );
-                if (links.length > 0) { currentList = links; return true; }
-                let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
-                    const r = img.getBoundingClientRect();
-                    return r.width > 100 && r.height > 150;
-                });
-                if (imgs.length > 0) { currentList = imgs; return true; }
-                return false;
-            }, `Video Reels thứ ${i + 1}`, 3, 4);
-
-            if (currentList.length > i) {
-                await safeClick(currentList[i]);
-            } else if (currentList.length > 0) {
-                await safeClick(currentList[0]);
-            } else {
-                logMsg(`⚠️ Không thể mở video thứ ${i + 1}. Bỏ qua.`);
-                continue;
-            }
-
-            // Gọi hàm xử lý 1 video
-            let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;
-            const resSingle = await processSingleReel(cfg, targetPageName);
-
-            if (resSingle === "ALREADY_EXISTS") {
-                logMsg(`ℹ️ [Video ${i + 1}/${maxVideos}] Đã có bài đăng/ghim sẵn trên video này!`);
-            } else if (resSingle) {
-                logMsg(`✅ [Video ${i + 1}/${maxVideos}] Đã đăng bài mới & ghim thành công!`);
-            } else {
-                logMsg(`⚠️ [Video ${i + 1}/${maxVideos}] Không thể hoàn tất ghim bài này.`);
-            }
-
-            logMsg(`✅ HOÀN THÀNH VIDEO THỨ ${i + 1}/${maxVideos}!`);
-
-            // NẾU CÒN VIDEO TIẾP THEO -> THOÁT RA LƯỚI REELS (BACK)
-            if (i < maxVideos - 1) {
-                logMsg("🔙 Thoát video 1, quay lại lưới Reels để làm video 2...");
-                
-                // BƯỚC 1: Thoát khỏi khung Bình luận
-                logMsg("Đang đóng khung bình luận...");
-                let backBtn1 = Array.from(document.querySelectorAll('div[role="button"], i, svg, a, span, button')).find(el => {
-                    const rect = el.getBoundingClientRect();
-                    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-                    return (rect.top > 0 && rect.top < 65 && rect.left >= 0 && rect.left < 70) ||
-                           aria.includes('back') || aria.includes('quay lại') || aria.includes('đóng') || aria.includes('close');
-                });
-                
-                if (backBtn1) {
-                    await safeClick(backBtn1);
-                } else {
-                    const topCornerEl = document.elementFromPoint(25, 25);
-                    if (topCornerEl) await safeClick(topCornerEl);
-                }
-                await delay(1, 3);
-
-                // BƯỚC 2: Thoát khỏi Video Reels để ra ngoài lưới
-                logMsg("Đang thoát Video Reels để ra ngoài...");
-                let backBtn2 = Array.from(document.querySelectorAll('div[role="button"], i, svg, a, span, button')).find(el => {
-                    const rect = el.getBoundingClientRect();
-                    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-                    return (rect.top > 0 && rect.top < 65 && rect.left >= 0 && rect.left < 70) ||
-                           aria.includes('back') || aria.includes('quay lại') || aria.includes('đóng') || aria.includes('close');
-                });
-
-                if (backBtn2) {
-                    await safeClick(backBtn2);
-                } else {
-                    const topCornerEl = document.elementFromPoint(25, 25);
-                    if (topCornerEl) await safeClick(topCornerEl);
-                }
-                
-                logMsg("⏳ Chờ 6-8s cho lưới Reels load lại...");
-                await delay(1, 3);
-                
-                // Cuộn xuống một chút để thấy video tiếp theo rõ hơn
-                window.scrollBy({ top: 150, behavior: 'smooth' });
-                await delay(1, 3);
-            }
+        if (currentList.length > 0) {
+            await safeClick(currentList[0]);
+        } else {
+            logMsg(`⚠️ Không thể mở video đầu tiên. Bỏ qua Page này.`);
+            safeSendMessage({ action: "pageCompleted" });
+            return;
         }
-        
-        logMsg(`🎉 ĐÃ XỬ LÝ XONG ${maxVideos} VIDEO CHO PAGE NÀY. CHUYỂN PAGE TIẾP THEO!`);
-        safeSendMessage({ action: "pageCompleted" });
+
+        // Gọi hàm xử lý 1 video
+        let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;
+        const resSingle = await processSingleReel(cfg, targetPageName);
+
+        if (resSingle === "ALREADY_EXISTS") {
+            logMsg(`ℹ️ Đã có bài đăng/ghim sẵn trên video này! Chuẩn bị chuyển Page tiếp theo...`);
+            safeSendMessage({ action: "pageCompleted", alreadyExisted: true });
+        } else if (resSingle) {
+            logMsg(`✅ Đã đăng bài mới & ghim thành công cho Page này! Chuẩn bị chuyển Page tiếp theo...`);
+            safeSendMessage({ action: "pageCompleted", newlyPosted: true });
+        } else {
+            logMsg(`⚠️ Không thể hoàn tất ghim bài này. Chuẩn bị chuyển Page tiếp theo...`);
+            safeSendMessage({ action: "pageCompleted" });
+        }
 
     } catch (e) {
         logMsg(`❌ Lỗi: ${e.message}`);
