@@ -249,19 +249,26 @@ async function processSingleReel(cfg, targetPageName) {
         });
 
         // Fallback: Tìm các chữ đặc trưng của bình luận (Nếu Facebook đổi cấu trúc HTML)
-        const fullTextForCheck = (document.body.innerText || '').toLowerCase();
         if (!hasComments) {
-            hasComments = fullTextForCheck.includes('phản hồi') || 
-                          fullTextForCheck.includes('reply') || 
-                          fullTextForCheck.includes('view previous') || 
-                          fullTextForCheck.includes('xem bình luận trước');
+            hasComments = Array.from(document.querySelectorAll('div, span, a')).some(el => {
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0 || r.top < 50 || r.top > window.innerHeight - 50) return false;
+                const txt = (el.innerText || '').trim().toLowerCase();
+                // Nếu trên màn hình có những chữ này thì chắc chắn là trang đã load comment xong
+                return txt === 'phản hồi' || txt === 'reply' || txt.includes('view previous') || txt.includes('xem bình luận trước');
+            });
         }
 
         // Bắt chữ "Chưa có bình luận nào" (như sếp miêu tả: nếu có chữ này thì là load xong, bình thường)
-        const hasNoCommentsText = fullTextForCheck.includes('chưa có bình luận nào') || 
-                                  fullTextForCheck.includes('no comments yet') || 
-                                  fullTextForCheck.includes('hãy là người đầu tiên') || 
-                                  fullTextForCheck.includes('be the first to comment');
+        const hasNoCommentsText = Array.from(document.querySelectorAll('div, span')).some(el => {
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) return false;
+            const txt = (el.innerText || '').toLowerCase().trim();
+            return txt.includes('chưa có bình luận nào') || 
+                   txt.includes('no comments yet') || 
+                   txt.includes('hãy là người đầu tiên') || 
+                   txt.includes('be the first to comment');
+        });
 
         // Trang ĐÃ TẢI XONG nếu: Có ít nhất 1 bình luận, HOẶC có chữ "Chưa có..."
         const isContentLoaded = hasComments || hasNoCommentsText;
@@ -308,25 +315,8 @@ async function processSingleReel(cfg, targetPageName) {
     function scanFullPageForExistingComment() {
         if (!document.body) return { foundName: false, foundContent: false, foundPin: false };
         
-        // Xóa tạm các ô nhập liệu (input, placeholder "Comment as...") để không soi nhầm tên Nick nằm trong ô nhập
-        // Ẩn thay vì clone để tránh lỗi hiệu năng cực nặng của trình duyệt khi tính toán layout
-        const inputs = document.querySelectorAll('input, textarea, [contenteditable="true"], [placeholder], form, [role="textbox"]');
-        const originalDisplays = [];
-        inputs.forEach(el => {
-            originalDisplays.push(el.style.display);
-            el.style.display = 'none';
-        });
-
-        const rawText = document.body.innerText || '';
-
-        // Hiện lại ngay lập tức
-        inputs.forEach((el, i) => {
-            el.style.display = originalDisplays[i];
-        });
-
-        const rawTextLower = rawText.toLowerCase();
-
         // 0. KIỂM TRA BÀI VIẾT CHƯA CÓ BÌNH LUẬN NÀO ("No comments yet" / "Chưa có bình luận nào")
+        const rawTextLower = (document.body.innerText || '').toLowerCase();
         if (rawTextLower.includes('no comments yet') || 
             rawTextLower.includes('chưa có bình luận nào') || 
             rawTextLower.includes('be the first to comment') || 
@@ -334,7 +324,12 @@ async function processSingleReel(cfg, targetPageName) {
             return { foundName: false, foundContent: false, foundPin: false, isEmpty: true };
         }
 
-        const fullPageText = cleanText(rawText);
+        // Xóa tạm các ô nhập liệu (input, placeholder "Comment as...") để không soi nhầm tên Nick nằm trong ô nhập
+        const bodyClone = document.body.cloneNode(true);
+        const inputs = bodyClone.querySelectorAll('input, textarea, [contenteditable="true"], [placeholder], form, [role="textbox"]');
+        inputs.forEach(el => el.remove());
+
+        const fullPageText = cleanText(bodyClone.innerText || '');
         const targetNameClean = cleanText(targetPageName);
         
         // Lấy 8 ký tự đầu của nội dung mẫu để so khớp (lọc bỏ ký tự spintax nếu có)
