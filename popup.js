@@ -105,8 +105,9 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
 
 // Phục hồi trạng thái select box khi mở popup
 chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'reelsPerPage'], (st) => {
-    if (st.reelsPerPage) {
-        document.getElementById('reelsPerPage').value = st.reelsPerPage;
+    const reelsEl = document.getElementById('reelsPerPage');
+    if (st.reelsPerPage && reelsEl) {
+        reelsEl.value = st.reelsPerPage;
     }
     if (st.loopStrategy) {
         document.getElementById('loopStrategy').value = st.loopStrategy;
