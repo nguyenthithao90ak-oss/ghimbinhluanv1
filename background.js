@@ -36,6 +36,7 @@ function applyProxyFromStorage() {
                                     callbackFn({});
                                 }
                             });
+                            return true; // Bắt buộc phải có return true để Chrome đợi callback bất đồng bộ
                         },
                         { urls: ["<all_urls>"] },
                         ["asyncBlocking"]
