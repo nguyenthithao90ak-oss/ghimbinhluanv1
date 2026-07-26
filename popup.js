@@ -240,6 +240,34 @@ document.getElementById('btnClearLog').addEventListener('click', () => {
     });
 });
 
+// NÚT 1-CLICK COPY BÁO CÁO ZALO / MESSENGER
+document.getElementById('btnCopyZaloReport').addEventListener('click', () => {
+    chrome.storage.local.get(['sessionHistory'], (res) => {
+        const sessions = res.sessionHistory || [];
+        if (sessions.length === 0) return alert('Chưa có lịch sử phiên chạy nào để copy!');
+        const lastSession = sessions[0];
+        
+        let lines = [];
+        lines.push(`📊 BÁO CÁO KẾT QUẢ AUTOMATRIX PRO`);
+        lines.push(`⏰ Thời gian: ${lastSession.startTime}`);
+        lines.push(`---------------------------------`);
+        
+        (lastSession.items || []).forEach(item => {
+            lines.push(`${item.status} - ${item.pageName}`);
+        });
+
+        lines.push(`---------------------------------`);
+        lines.push(`🎉 Tổng cộng: ${lastSession.totalCount || lastSession.items?.length || 0} Page | ✅ ${lastSession.successCount || 0} Thành công | ⚠️ ${lastSession.lagCount || 0} Bị lag`);
+
+        const reportText = lines.join('\n');
+        navigator.clipboard.writeText(reportText).then(() => {
+            alert('✅ ĐÃ COPY BÁO CÁO ZALO VÀO BỘ NHỚ TẠM!\n\nBác mở ô chat Zalo / Messenger bấm Ctrl + V (Dán) rồi ấn Gửi là xong!');
+        }).catch(err => {
+            alert('Lỗi copy: ' + err);
+        });
+    });
+});
+
 // NÚT XÓA TẤT CẢ MẪU LƯU
 document.getElementById('btnClearAllConfigs').addEventListener('click', () => {
     if (confirm("Anh có chắc muốn xóa sạch toàn bộ danh sách Mẫu đã lưu không?")) {
