@@ -489,11 +489,14 @@ function renderDashboardHistory() {
     });
 }
 
-document.getElementById('btnDashClearHistory').addEventListener('click', () => {
-    if (confirm("Xóa toàn bộ lịch sử chạy của tất cả các phiên?")) {
-        chrome.storage.local.set({ sessionHistory: [], runHistory: [] }, renderDashboardHistory);
-    }
-});
+const btnClearHist = document.getElementById('btnDashClearHistory');
+if (btnClearHist) {
+    btnClearHist.addEventListener('click', () => {
+        if (confirm("Xóa toàn bộ lịch sử chạy của tất cả các phiên?")) {
+            chrome.storage.local.set({ sessionHistory: [], runHistory: [] }, renderDashboardHistory);
+        }
+    });
+}
 
 // NÚT 1-CLICK COPY BÁO CÁO ZALO / MESSENGER TRÊN DASHBOARD
 const btnDashCopyZalo = document.getElementById('btnDashCopyZaloReport');
@@ -656,11 +659,11 @@ document.getElementById('dashBackupFileInput').addEventListener('change', (e) =>
 loadDashboardConfigs();
 renderDashboardLogs();
 renderProgressTracker();
-renderDashboardHistory();
+if (document.getElementById('dashSessionList')) renderDashboardHistory();
 updateDashboardCountdown();
 setInterval(() => {
     renderDashboardLogs();
     renderProgressTracker();
     updateDashboardCountdown();
 }, 1000);
-setInterval(renderDashboardHistory, 3000);
+if (document.getElementById('dashSessionList')) setInterval(renderDashboardHistory, 3000);
