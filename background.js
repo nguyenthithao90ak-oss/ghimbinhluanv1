@@ -105,7 +105,7 @@ function startNewSession(targetConfigs) {
     });
 }
 
-function printSessionReport() {
+function printSessionReport(repeatInfoStr = '') {
     chrome.storage.local.get(['sessionHistory', 'teleBotToken', 'teleChatId'], (res) => {
         const sessions = res.sessionHistory || [];
         if (sessions.length === 0) return;
@@ -125,7 +125,7 @@ function printSessionReport() {
         // Lọc bỏ những page đã bị lag nhưng sau đó thử lại thành công
         failArr = failArr.filter(p => !successArr.some(sp => sp.name === p.name));
         
-        let reportStr = `📊 BÁO CÁO KẾT QUẢ PHIÊN CHẠY 📊\n`;
+        let reportStr = `📊 BÁO CÁO TỔNG KẾT PHIÊN CHẠY 📊\n`;
         reportStr += `------------------------------------\n`;
         reportStr += `✅ THÀNH CÔNG: ${successArr.length} Page\n`;
         if (successArr.length === 0) {
@@ -147,6 +147,11 @@ function printSessionReport() {
                 reportStr += ` ${idx}. 🔴 TK "${p.name}" [${p.time}]\n`;
             });
         }
+
+        if (repeatInfoStr) {
+            reportStr += `------------------------------------\n`;
+            reportStr += `📌 TRẠNG THÁI TIẾP THEO:\n${repeatInfoStr}\n`;
+        }
         reportStr += `------------------------------------\n`;
         
         addLog(reportStr);
@@ -156,7 +161,7 @@ function printSessionReport() {
         const chatId = (res.teleChatId && res.teleChatId.trim()) ? res.teleChatId.trim() : '6139045056';
 
         if (botToken && chatId) {
-            const teleMsg = reportStr.replace(/=========/g, '').trim(); // Format lại cho đẹp trên điện thoại
+            const teleMsg = reportStr.trim();
             const teleUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
             fetch(teleUrl, {
                 method: 'POST',
@@ -166,7 +171,7 @@ function printSessionReport() {
                     text: teleMsg
                 })
             }).then(response => {
-                if(response.ok) addLog('🚀 Đã bắn báo cáo qua Telegram thành công!');
+                if(response.ok) addLog('🚀 Đã bắn báo cáo tổng kết phiên qua Telegram thành công!');
                 else addLog('⚠️ Lỗi bắn Telegram: Vui lòng kiểm tra lại Token / Chat ID.');
             }).catch(err => {
                 addLog('⚠️ Lỗi kết nối Telegram: ' + err.message);
@@ -414,18 +419,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (state.targetConfigs.length === 1) {
                     if (strat === 'ONCE') {
                         addLog(`🎉 HOÀN TẤT CHẠY 1 LẦN CHO "${pName}" VÀ TỰ ĐỘNG DỪNG LẠI!`);
-                        printSessionReport();
+                        printSessionReport('🛑 Đã hoàn thành chạy 1 lần và tự động dừng.');
                         chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
                         chrome.alarms.clearAll(() => {
                             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
                         });
                     } else if (strat === 'CONTINUOUS') {
                         addLog(`⏳ CHẾ ĐỘ LIÊN TỤC: Nghỉ 30s rồi tự động lặp lại cho "${pName}"...`);
-                        printSessionReport();
+                        printSessionReport('♾️ Nghỉ 30 giây rồi tự động lặp lại cho Nick này...');
                         chrome.alarms.create("singleAccountRepeat", { delayInMinutes: 30 / 60 });
                     } else if (strat === 'DELAY') {
                         addLog(`⏳ CHẾ ĐỘ CÁCH KHOẢNG: Nghỉ ${delayMins} phút rồi lặp lại cho "${pName}"...`);
-                        printSessionReport();
+                        printSessionReport(`⏳ Nghỉ ${delayMins} phút rồi tự động lặp lại cho Nick này...`);
                         chrome.alarms.create("singleAccountRepeat", { delayInMinutes: delayMins });
                     }
                 } else {
@@ -654,24 +659,24 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
                         if (strat === 'ONCE') {
                             addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ ĐỘNG DỪNG LẠI!`);
-                            printSessionReport();
+                            printSessionReport('🛑 Đã hoàn thành phiên chạy 1 lần và tự động dừng.');
                             chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
                             chrome.alarms.clearAll(() => {
                                 chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
                             });
                         } else if (strat === 'CONTINUOUS') {
                             addLog(`🎉 HOÀN THÀNH 1 VÒNG ${origConfigs.length} PAGE! Chế độ Liên Tục: Nghỉ 45 giây rồi lặp lại VÒNG MỚI...`);
-                            printSessionReport();
+                            printSessionReport('♾️ Đã hoàn thành 1 vòng! Nghỉ 45 giây rồi lặp lại vòng mới...');
                             chrome.alarms.create("multiAccountLoopRepeat", { delayInMinutes: 45 / 60 });
                         } else if (strat === 'DELAY') {
                             addLog(`🎉 HOÀN THÀNH 1 VÒNG ${origConfigs.length} PAGE! Chế độ Cách Khoảng: Nghỉ ${delayMins} phút rồi lặp lại VÒNG MỚI...`);
-                            printSessionReport();
+                            printSessionReport(`⏳ Đã hoàn thành 1 vòng! Nghỉ ${delayMins} phút rồi tự động lặp lại vòng mới...`);
                             chrome.alarms.create("multiAccountLoopRepeat", { delayInMinutes: delayMins });
                         } else if (strat === 'SCHEDULE') {
-                            const nextTarget = getNextScheduleTarget(origSt.scheduleTimes);
+                            const nextTarget = getNextScheduleTarget(origSt.scheduleTimes, origSt.scheduleDays, origSt.lastScheduleRun);
                             const nextStr = nextTarget ? nextTarget.timeStr : '--:--';
                             addLog(`🎉 HOÀN THÀNH PHIÊN CHẠY GIỜ VÀNG CHO ${origConfigs.length} PAGE! Bot tự động quay lại chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
-                            printSessionReport();
+                            printSessionReport(`⏰ Đã hoàn thành phiên Giờ Vàng! Tự động quay về chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
                             chrome.storage.local.set({ isBotRunning: true, isScheduleWaiting: true, step: "SCHEDULE_WAITING" });
                         }
                     });
