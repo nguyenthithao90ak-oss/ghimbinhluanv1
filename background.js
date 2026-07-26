@@ -312,7 +312,11 @@ function processNextStep() {
         } else if (step === "SWITCHING") {
             const pageName = targetConfigs[currentConfigIndex]?.pageName;
             if (pageName) {
-                addLog(`🔄 Chuyển sang Menu để đổi nick "${pageName}"...`);
+                if (state.isRetryPhase) {
+                    addLog(`🔄 [THỬ LẠI HÀNG CHỜ LỖI] Đang thử lại tài khoản bị lỗi: "${pageName}"...`);
+                } else {
+                    addLog(`🔄 Chuyển sang Menu để đổi nick "${pageName}"...`);
+                }
             }
             chrome.tabs.update(tabId, { url: "https://m.facebook.com/bookmarks/" });
         }
@@ -628,7 +632,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             if (nextIndex >= state.targetConfigs.length) {
                 let retryQueue = state.retryQueue || [];
                 if (retryQueue.length > 0 && !state.isRetryPhase) { // Bắt đầu Retry Phase
-                    addLog(`🔄 THỬ LẠI CHO ${retryQueue.length} PAGE BỊ LAG Ở VÒNG TRƯỚC...`);
+                    const retryNames = retryQueue.map(q => `"${q.pageName}"`).join(', ');
+                    const firstRetryName = retryQueue[0]?.pageName || 'Nick';
+                    addLog(`🔄 BẮT ĐẦU VÒNG THỬ LẠI CHO ${retryQueue.length} TÀI KHOẢN BỊ LỖI/LAG VÒNG TRƯỚC: ${retryNames}`);
+                    addLog(`🔄 Đang thử lại tài khoản bị lỗi [1/${retryQueue.length}]: "${firstRetryName}"...`);
                     chrome.storage.local.set({
                         targetConfigs: retryQueue,
                         retryQueue: [],
@@ -670,7 +677,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                     });
                 }
             } else {
-                addLog(`📌 Chuyển sang Page [${nextIndex + 1}/${state.targetConfigs.length}]: "${state.targetConfigs[nextIndex].pageName}"`);
+                const nextCfg = state.targetConfigs[nextIndex];
+                if (state.isRetryPhase) {
+                    addLog(`🔄 Đang thử lại tài khoản bị lỗi [${nextIndex + 1}/${state.targetConfigs.length}]: "${nextCfg?.pageName}"...`);
+                } else {
+                    addLog(`📌 Chuyển sang Page [${nextIndex + 1}/${state.targetConfigs.length}]: "${nextCfg?.pageName}"`);
+                }
                 chrome.storage.local.set({ currentConfigIndex: nextIndex, step: "SWITCHING" }, processNextStep);
             }
         });
