@@ -339,6 +339,53 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
     }
 
+    // 📱 XUẤT COOKIE FACEBOOK TỪ BACKGROUND (Service Worker có quyền đầy đủ)
+    if (request.action === "exportFbCookies") {
+        chrome.cookies.getAll({ domain: ".facebook.com" }, (cookies) => {
+            const cleanCookies = (cookies || []).map(c => ({
+                name: c.name,
+                value: c.value,
+                domain: c.domain || ".facebook.com",
+                path: c.path || "/",
+                secure: c.secure !== undefined ? c.secure : true,
+                httpOnly: c.httpOnly || false,
+                sameSite: c.sameSite || "unspecified"
+            }));
+            addLog(`📱 Đã xuất ${cleanCookies.length} cookie Facebook thành công!`);
+            sendResponse({ cookies: cleanCookies });
+        });
+        return true; // Giữ kênh sendResponse mở cho async
+    }
+
+    // 📱 NHẬP COOKIE FACEBOOK VÀO TRÌNH DUYỆT (Service Worker set cookie)
+    if (request.action === "importFbCookies") {
+        const fbCookies = request.cookies || [];
+        let imported = 0;
+        const setNext = (i) => {
+            if (i >= fbCookies.length) {
+                addLog(`📱 Đã nhập thành công ${imported}/${fbCookies.length} cookie Facebook vào trình duyệt!`);
+                sendResponse({ imported });
+                return;
+            }
+            const c = fbCookies[i];
+            chrome.cookies.set({
+                url: "https://m.facebook.com",
+                name: c.name,
+                value: c.value,
+                domain: c.domain || ".facebook.com",
+                path: c.path || "/",
+                secure: c.secure !== undefined ? c.secure : true,
+                httpOnly: c.httpOnly || false,
+                sameSite: c.sameSite || "unspecified"
+            }, () => {
+                imported++;
+                setNext(i + 1);
+            });
+        };
+        setNext(0);
+        return true; // Giữ kênh sendResponse mở cho async
+    }
+
     if (request.action === "stopBotProcess") {
         chrome.alarms.clearAll(() => {
             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });

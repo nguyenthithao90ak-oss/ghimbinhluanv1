@@ -707,32 +707,19 @@ document.getElementById('btnClearHistory').addEventListener('click', () => {
 });
 
 // 📱 HÀM XUẤT TOÀN BỘ DỮ LIỆU + COOKIE FACEBOOK SANG ĐIỆN THOẠI
+// Cookie được lấy qua background.js (Service Worker) để đảm bảo 100% quyền truy cập
 async function getFullBackupData() {
     return new Promise((resolve) => {
         chrome.storage.local.get(null, (st) => {
-            if (chrome.cookies && chrome.cookies.getAll) {
-                chrome.cookies.getAll({ domain: ".facebook.com" }, (cookies) => {
-                    const cleanCookies = (cookies || []).map(c => ({
-                        url: "https://m.facebook.com",
-                        name: c.name,
-                        value: c.value,
-                        domain: c.domain || ".facebook.com",
-                        path: c.path || "/",
-                        secure: c.secure !== undefined ? c.secure : true
-                    }));
-                    resolve({
-                        exportDate: new Date().toLocaleString(),
-                        storage: st,
-                        fbCookies: cleanCookies
-                    });
-                });
-            } else {
+            // Gửi yêu cầu lấy cookie sang background.js (Service Worker)
+            chrome.runtime.sendMessage({ action: "exportFbCookies" }, (response) => {
+                const cookies = (response && response.cookies) ? response.cookies : [];
                 resolve({
                     exportDate: new Date().toLocaleString(),
                     storage: st,
-                    fbCookies: []
+                    fbCookies: cookies
                 });
-            }
+            });
         });
     });
 }
@@ -744,19 +731,13 @@ async function restoreFullData(data) {
     const st = data.storage || { pageConfigs: data.pageConfigs, runHistory: data.runHistory };
     await new Promise(r => chrome.storage.local.set(st, r));
 
-    if (data.fbCookies && Array.isArray(data.fbCookies) && chrome.cookies && chrome.cookies.set) {
-        for (const c of data.fbCookies) {
-            try {
-                await chrome.cookies.set({
-                    url: "https://m.facebook.com",
-                    name: c.name,
-                    value: c.value,
-                    domain: ".facebook.com",
-                    path: c.path || "/",
-                    secure: true
-                });
-            } catch (err) {}
-        }
+    // Nhập cookie qua background.js (Service Worker) để đảm bảo quyền set cookie
+    if (data.fbCookies && Array.isArray(data.fbCookies) && data.fbCookies.length > 0) {
+        await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ action: "importFbCookies", cookies: data.fbCookies }, (response) => {
+                resolve(response);
+            });
+        });
     }
 }
 
