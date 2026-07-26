@@ -125,6 +125,75 @@ chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'sched
     }
 });
 
+function getNextScheduleTarget(scheduleTimesStr) {
+    if (!scheduleTimesStr) return null;
+    const times = scheduleTimesStr.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
+    if (times.length === 0) return null;
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const nowSeconds = now.getSeconds();
+
+    let candidateSlots = [];
+
+    times.forEach(t => {
+        const parts = t.split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const slotMinutes = h * 60 + m;
+
+        let diffSecs = (slotMinutes - nowMinutes) * 60 - nowSeconds;
+        if (diffSecs <= 0) {
+            diffSecs += 24 * 3600;
+        }
+
+        candidateSlots.push({
+            timeStr: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
+            diffSecs: diffSecs
+        });
+    });
+
+    candidateSlots.sort((a, b) => a.diffSecs - b.diffSecs);
+    return candidateSlots[0];
+}
+
+function formatCountdownText(diffSecs) {
+    if (diffSecs <= 0) return "00 giờ 00 phút 00 giây (Đã đến giờ!)";
+    const h = Math.floor(diffSecs / 3600);
+    const m = Math.floor((diffSecs % 3600) / 60);
+    const s = Math.floor(diffSecs % 60);
+
+    const hStr = h.toString().padStart(2, '0');
+    const mStr = m.toString().padStart(2, '0');
+    const sStr = s.toString().padStart(2, '0');
+
+    return `${hStr} giờ ${mStr} phút ${sStr} giây`;
+}
+
+function updatePopupCountdown() {
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes'], (st) => {
+        const box = document.getElementById('scheduleCountdownBox');
+        if (!box) return;
+
+        if (st.loopStrategy === 'SCHEDULE') {
+            box.style.display = 'block';
+            const nextTarget = getNextScheduleTarget(st.scheduleTimes);
+            if (nextTarget) {
+                document.getElementById('nextScheduleTimeText').innerText = nextTarget.timeStr;
+                document.getElementById('scheduleCountdownText').innerText = `⏳ Còn lại: ${formatCountdownText(nextTarget.diffSecs)}`;
+            } else {
+                document.getElementById('nextScheduleTimeText').innerText = '--:--';
+                document.getElementById('scheduleCountdownText').innerText = 'Vui lòng nhập định dạng HH:mm (VD: 08:20, 12:00)';
+            }
+        } else {
+            box.style.display = 'none';
+        }
+    });
+}
+
+setInterval(updatePopupCountdown, 1000);
+updatePopupCountdown();
+
 function loadRunPageOptions() {
     chrome.storage.local.get(['pageConfigs'], (result) => {
         const configs = result.pageConfigs || [];

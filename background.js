@@ -431,48 +431,110 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
 });
 
-function triggerStartProcess(rawConfigs) {
+function getNextScheduleTarget(scheduleTimesStr) {
+    if (!scheduleTimesStr) return null;
+    const times = scheduleTimesStr.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
+    if (times.length === 0) return null;
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const nowSeconds = now.getSeconds();
+
+    let candidateSlots = [];
+
+    times.forEach(t => {
+        const parts = t.split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const slotMinutes = h * 60 + m;
+
+        let diffSecs = (slotMinutes - nowMinutes) * 60 - nowSeconds;
+        if (diffSecs <= 0) {
+            diffSecs += 24 * 3600;
+        }
+
+        candidateSlots.push({
+            timeStr: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
+            diffSecs: diffSecs
+        });
+    });
+
+    candidateSlots.sort((a, b) => a.diffSecs - b.diffSecs);
+    return candidateSlots[0];
+}
+
+function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
     if (!rawConfigs || rawConfigs.length === 0) return;
 
-    // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
-    const randomizedConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes'], (st) => {
+        const isScheduleMode = st.loopStrategy === 'SCHEDULE';
+        const now = new Date();
+        const curH = now.getHours().toString().padStart(2, '0');
+        const curM = now.getMinutes().toString().padStart(2, '0');
+        const currentTime = `${curH}:${curM}`;
+        const times = (st.scheduleTimes || '').split(',').map(t => t.trim());
 
-    console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
-    startNewSession(randomizedConfigs);
+        const isExactScheduledTime = times.includes(currentTime);
 
-    const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
-    addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
-    addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
+        if (isScheduleMode && !isExactScheduledTime && !isForcedByScheduler) {
+            const nextTarget = getNextScheduleTarget(st.scheduleTimes);
+            const nextStr = nextTarget ? nextTarget.timeStr : 'khung giờ đã chọn';
+            addLog(`⏰ CHẾ ĐỘ HẸN GIỜ (GIỜ VÀNG): Đã bật chế độ chờ! Bot chỉ chạy đúng các khung giờ đã cài.`);
+            addLog(`⏳ Hiện tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
 
-    chrome.tabs.create({
-        url: "https://m.facebook.com/bookmarks/",
-        active: true
-    }, (tab) => {
-        chrome.storage.local.set({
-            isBotRunning: true,
-            targetConfigs: randomizedConfigs,
-            originalTargetConfigs: rawConfigs,
-            retryQueue: [],
-            currentConfigIndex: 0,
-            isRetryPhase: false,
-            tabId: tab.id,
-            step: "SWITCHING"
-        }, () => {
-            addLog(`🚀 Bắt đầu chạy tiến trình cho ${randomizedConfigs.length} Page (Nick ngẫu nhiên đầu tiên: "${randomizedConfigs[0].pageName}")...`);
+            chrome.storage.local.set({
+                isBotRunning: true,
+                isScheduleWaiting: true,
+                targetConfigs: rawConfigs,
+                originalTargetConfigs: rawConfigs,
+                step: "SCHEDULE_WAITING"
+            });
+            return;
+        }
+
+        // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
+        const randomizedConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
+
+        console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
+        startNewSession(randomizedConfigs);
+
+        const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
+        addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
+        addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
+
+        chrome.tabs.create({
+            url: "https://m.facebook.com/bookmarks/",
+            active: true
+        }, (tab) => {
+            chrome.storage.local.set({
+                isBotRunning: true,
+                isScheduleWaiting: false,
+                targetConfigs: randomizedConfigs,
+                originalTargetConfigs: rawConfigs,
+                retryQueue: [],
+                currentConfigIndex: 0,
+                isRetryPhase: false,
+                tabId: tab.id,
+                step: "SWITCHING"
+            }, () => {
+                addLog(`🚀 Bắt đầu chạy tiến trình cho ${randomizedConfigs.length} Page (Nick ngẫu nhiên đầu tiên: "${randomizedConfigs[0].pageName}")...`);
+            });
         });
     });
 }
 
-// Khởi tạo báo thức kiểm tra Giờ Vàng mỗi phút
-chrome.alarms.create("autoScheduler", { periodInMinutes: 1 });
+// Khởi tạo báo thức kiểm tra Giờ Vàng mỗi 6 giây (0.1 phút)
+chrome.alarms.create("autoScheduler", { periodInMinutes: 0.1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "autoScheduler") {
-        chrome.storage.local.get(['isBotRunning', 'loopStrategy', 'scheduleTimes', 'pageConfigs', 'lastScheduleRun'], (state) => {
-            if (state.isBotRunning) return; // Không kích hoạt nếu bot đang chạy
-            if (state.loopStrategy !== 'SCHEDULE') return; // Phải đang chọn chế độ Hẹn Giờ
+        chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'loopStrategy', 'scheduleTimes', 'pageConfigs', 'lastScheduleRun', 'step'], (state) => {
+            if (state.loopStrategy !== 'SCHEDULE') return;
             if (!state.scheduleTimes || !state.pageConfigs || state.pageConfigs.length === 0) return;
             
+            // Nếu bot đang chạy tiến trình chính (không phải đang SCHEDULE_WAITING), bỏ qua
+            if (state.isBotRunning && !state.isScheduleWaiting && state.step !== "SCHEDULE_WAITING") return;
+
             const now = new Date();
             const h = now.getHours().toString().padStart(2, '0');
             const m = now.getMinutes().toString().padStart(2, '0');
@@ -482,8 +544,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             
             if (times.includes(currentTime) && state.lastScheduleRun !== currentTime) {
                 chrome.storage.local.set({ lastScheduleRun: currentTime }, () => {
-                    addLog(`⏰ AUTO SCHEDULER: Đã đến giờ Vàng (${currentTime})! Tự động đánh thức Bot...`);
-                    triggerStartProcess(state.pageConfigs);
+                    addLog(`⏰ AUTO SCHEDULER: ĐÃ ĐẾN GIỜ VÀNG (${currentTime})! Tự động đánh thức và khởi chạy Bot...`);
+                    triggerStartProcess(state.pageConfigs, true);
                 });
             }
         });
@@ -514,7 +576,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                     }, processNextStep);
                 } else {
                     // Đã duyệt xong 1 Vòng tất cả các Page -> Xử lý theo Chiến Lược Lặp
-                    chrome.storage.local.get(['originalTargetConfigs', 'loopStrategy', 'loopDelayMin', 'loopDelayMax'], (origSt) => {
+                    chrome.storage.local.get(['originalTargetConfigs', 'loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes'], (origSt) => {
                         const origConfigs = origSt.originalTargetConfigs || state.targetConfigs;
                         const strat = origSt.loopStrategy || 'ONCE';
                         const minDelay = origSt.loopDelayMin || 20;
@@ -536,6 +598,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                             addLog(`🎉 HOÀN THÀNH 1 VÒNG ${origConfigs.length} PAGE! Chế độ Cách Khoảng: Nghỉ ${delayMins} phút rồi lặp lại VÒNG MỚI...`);
                             printSessionReport();
                             chrome.alarms.create("multiAccountLoopRepeat", { delayInMinutes: delayMins });
+                        } else if (strat === 'SCHEDULE') {
+                            const nextTarget = getNextScheduleTarget(origSt.scheduleTimes);
+                            const nextStr = nextTarget ? nextTarget.timeStr : '--:--';
+                            addLog(`🎉 HOÀN THÀNH PHIÊN CHẠY GIỜ VÀNG CHO ${origConfigs.length} PAGE! Bot tự động quay lại chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
+                            printSessionReport();
+                            chrome.storage.local.set({ isBotRunning: true, isScheduleWaiting: true, step: "SCHEDULE_WAITING" });
                         }
                     });
                 }

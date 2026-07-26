@@ -75,6 +75,10 @@
                 <label>Các khung giờ chạy (VD: 08:00, 12:00, 20:00):</label>
                 <input type="text" id="scheduleTimes" value="08:00, 12:00, 20:00" placeholder="Cách nhau dấu phẩy">
                 <small style="color:red; font-size:10px;">Lưu ý: Mở máy và bật Chrome tại các giờ này</small>
+                <div id="scheduleCountdownBox" style="display: none; margin-top: 8px; padding: 10px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 6px; text-align: center;">
+                    <div style="font-size: 11px; font-weight: bold; color: #856404;">⏰ KHUNG GIỜ VÀNG TIẾP THEO: <span id="nextScheduleTimeText" style="color: #d39e00; font-size: 13px;">--:--</span></div>
+                    <div id="scheduleCountdownText" style="font-size: 13px; font-weight: bold; color: #111; margin-top: 3px;">⏳ Còn lại: 00 giờ 00 phút 00 giây</div>
+                </div>
             </div>
             <button id="btnStartCheck" class="btn-main">🚀 BẮT ĐẦU CHUYỂN NICK & CHẠY</button>
         </div>
