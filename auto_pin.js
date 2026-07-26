@@ -310,7 +310,7 @@ async function processSingleReel(cfg, targetPageName) {
     if (isLagging) {
         logMsg(`⚠️ PHÁT HIỆN BÌNH LUẬN BỊ LAG (Không hiện ô nhập/Spinner)! Bỏ qua Nick "${targetPageName}", sẽ thử lại ở phiên sau.`);
         safeSendMessage({ action: "accountLagged", pageName: targetPageName });
-        return false;
+        return "LAGGED";
     }
 
     // 4. QUÉT TOÀN MÀN HÌNH KIỂM TRA ĐÃ CÓ BÀI ĐĂNG / GHIM CHƯA
@@ -721,17 +721,19 @@ async function runChecking(pageConfigs, targetPageName) {
         if (resSingle === "ALREADY_EXISTS") {
             logMsg(`ℹ️ Đã có bài đăng/ghim sẵn trên video này! Chuẩn bị chuyển Page tiếp theo...`);
             safeSendMessage({ action: "pageCompleted", alreadyExisted: true });
-        } else if (resSingle) {
+        } else if (resSingle === "LAGGED") {
+            logMsg(`⚠️ Nick bị lag bình luận. Đã gửi thông báo accountLagged, không gửi pageCompleted trùng lặp.`);
+        } else if (resSingle === true) {
             logMsg(`✅ Đã đăng bài mới & ghim thành công cho Page này! Chuẩn bị chuyển Page tiếp theo...`);
             safeSendMessage({ action: "pageCompleted", newlyPosted: true });
         } else {
             logMsg(`⚠️ Không thể hoàn tất ghim bài này. Chuẩn bị chuyển Page tiếp theo...`);
-            safeSendMessage({ action: "pageCompleted" });
+            safeSendMessage({ action: "pageCompleted", failed: true });
         }
 
     } catch (e) {
         logMsg(`❌ Lỗi: ${e.message}`);
-        safeSendMessage({ action: "pageCompleted" });
+        safeSendMessage({ action: "pageCompleted", failed: true });
     }
 }
 

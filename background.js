@@ -390,9 +390,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.alreadyExisted) {
                 addLog(`ℹ️ Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
                 addHistoryRecord(pName, "ℹ️ Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
-            } else {
+            } else if (request.newlyPosted) {
                 addLog(`✅ Page "${pName}": ĐÃ ĐĂNG BÀI MỚI & GHIM THÀNH CÔNG!`);
                 addHistoryRecord(pName, "✅ Đăng & Ghim mới", "Đã đăng bài mẫu + đính kèm ảnh + ghim thành công");
+            } else {
+                addLog(`⚠️ Page "${pName}": Thao tác không thành công -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo.`);
+                addHistoryRecord(pName, "⚠️ Thao tác không thành công", "Không thể tìm thấy phần tử hoặc Facebook không phản hồi");
             }
             
             chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax'], (settings) => {
