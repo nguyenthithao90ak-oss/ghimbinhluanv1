@@ -341,49 +341,93 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // 📱 XUẤT COOKIE FACEBOOK TỪ BACKGROUND (Service Worker có quyền đầy đủ)
     if (request.action === "exportFbCookies") {
-        chrome.cookies.getAll({ domain: ".facebook.com" }, (cookies) => {
-            const cleanCookies = (cookies || []).map(c => ({
-                name: c.name,
-                value: c.value,
-                domain: c.domain || ".facebook.com",
-                path: c.path || "/",
-                secure: c.secure !== undefined ? c.secure : true,
-                httpOnly: c.httpOnly || false,
-                sameSite: c.sameSite || "unspecified"
-            }));
-            addLog(`📱 Đã xuất ${cleanCookies.length} cookie Facebook thành công!`);
-            sendResponse({ cookies: cleanCookies });
+        Promise.all([
+            new Promise(r => chrome.cookies.getAll({ domain: "facebook.com" }, r)),
+            new Promise(r => chrome.cookies.getAll({ url: "https://m.facebook.com" }, r)),
+            new Promise(r => chrome.cookies.getAll({ url: "https://www.facebook.com" }, r))
+        ]).then(([c1, c2, c3]) => {
+            const all = [...(c1 || []), ...(c2 || []), ...(c3 || [])];
+            const cookieMap = new Map();
+            all.forEach(c => {
+                const key = `${c.domain}_${c.name}`;
+                if (!cookieMap.has(key)) {
+                    cookieMap.set(key, {
+                        name: c.name,
+                        value: c.value,
+                        domain: c.domain || ".facebook.com",
+                        path: c.path || "/",
+                        secure: c.secure !== undefined ? c.secure : true,
+                        httpOnly: c.httpOnly || false,
+                        sameSite: (c.sameSite && c.sameSite !== "unspecified") ? c.sameSite : "no_restriction",
+                        expirationDate: c.expirationDate || (Math.floor(Date.now() / 1000) + 31536000)
+                    });
+                }
+            });
+            const cleanCookies = Array.from(cookieMap.values());
+            const rawHeader = cleanCookies.map(c => `${c.name}=${c.value}`).join('; ');
+            
+            addLog(`📱 Đã xuất ${cleanCookies.length} Cookie Facebook chuẩn (Bao gồm c_user & xs)!`);
+            sendResponse({ cookies: cleanCookies, rawHeader: rawHeader });
         });
-        return true; // Giữ kênh sendResponse mở cho async
+        return true;
     }
 
     // 📱 NHẬP COOKIE FACEBOOK VÀO TRÌNH DUYỆT (Service Worker set cookie)
     if (request.action === "importFbCookies") {
         const fbCookies = request.cookies || [];
+        if (fbCookies.length === 0) {
+            sendResponse({ imported: 0, error: "Không có cookie nào để nhập" });
+            return true;
+        }
+
         let imported = 0;
-        const setNext = (i) => {
-            if (i >= fbCookies.length) {
-                addLog(`📱 Đã nhập thành công ${imported}/${fbCookies.length} cookie Facebook vào trình duyệt!`);
-                sendResponse({ imported });
-                return;
-            }
-            const c = fbCookies[i];
-            chrome.cookies.set({
-                url: "https://m.facebook.com",
-                name: c.name,
-                value: c.value,
-                domain: c.domain || ".facebook.com",
-                path: c.path || "/",
-                secure: c.secure !== undefined ? c.secure : true,
-                httpOnly: c.httpOnly || false,
-                sameSite: c.sameSite || "unspecified"
-            }, () => {
-                imported++;
-                setNext(i + 1);
+        const promises = fbCookies.map(c => {
+            return new Promise((resolve) => {
+                let domainClean = (c.domain || ".facebook.com").replace(/^\./, '');
+                let cookieUrl = `https://${domainClean}${c.path || '/'}`;
+                
+                const cookieObj = {
+                    url: cookieUrl,
+                    name: c.name,
+                    value: c.value,
+                    path: c.path || "/",
+                    secure: true,
+                    expirationDate: c.expirationDate || (Math.floor(Date.now() / 1000) + 31536000)
+                };
+                
+                if (c.domain) {
+                    cookieObj.domain = c.domain;
+                }
+
+                chrome.cookies.set(cookieObj, () => {
+                    if (chrome.runtime.lastError) {
+                        // Fallback nạp không cần domain
+                        delete cookieObj.domain;
+                        cookieObj.url = "https://m.facebook.com/";
+                        chrome.cookies.set(cookieObj, () => {
+                            if (!chrome.runtime.lastError) imported++;
+                            resolve();
+                        });
+                    } else {
+                        imported++;
+                        resolve();
+                    }
+                });
             });
-        };
-        setNext(0);
-        return true; // Giữ kênh sendResponse mở cho async
+        });
+
+        Promise.all(promises).then(() => {
+            addLog(`📱 Đã nhập thành công ${imported}/${fbCookies.length} Cookie Facebook! Tự động mở/reload m.facebook.com...`);
+            chrome.tabs.query({ url: "*://*.facebook.com/*" }, (tabs) => {
+                if (tabs && tabs.length > 0) {
+                    tabs.forEach(t => chrome.tabs.reload(t.id));
+                } else {
+                    chrome.tabs.create({ url: "https://m.facebook.com/bookmarks/" });
+                }
+            });
+            sendResponse({ imported: imported, total: fbCookies.length });
+        });
+        return true;
     }
 
     if (request.action === "stopBotProcess") {
