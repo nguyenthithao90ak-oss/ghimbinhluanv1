@@ -300,12 +300,16 @@ function renderProgressTracker() {
     });
 }
 
-function getNextScheduleTarget(scheduleTimesStr) {
+function getNextScheduleTarget(scheduleTimesStr, lastScheduleRun = null) {
     if (!scheduleTimesStr) return null;
     const times = scheduleTimesStr.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
     if (times.length === 0) return null;
 
     const now = new Date();
+    const curH = now.getHours().toString().padStart(2, '0');
+    const curM = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${curH}:${curM}`;
+
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const nowSeconds = now.getSeconds();
 
@@ -318,7 +322,7 @@ function getNextScheduleTarget(scheduleTimesStr) {
         const slotMinutes = h * 60 + m;
 
         let diffSecs = (slotMinutes - nowMinutes) * 60 - nowSeconds;
-        if (diffSecs <= 0) {
+        if (diffSecs <= 0 || (t === currentTime && lastScheduleRun === currentTime)) {
             diffSecs += 24 * 3600;
         }
 
@@ -346,13 +350,13 @@ function formatCountdownText(diffSecs) {
 }
 
 function updateDashboardCountdown() {
-    chrome.storage.local.get(['loopStrategy', 'scheduleTimes'], (st) => {
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'lastScheduleRun'], (st) => {
         const box = document.getElementById('dashScheduleCountdownBox');
         if (!box) return;
 
         if (st.loopStrategy === 'SCHEDULE') {
             box.style.display = 'block';
-            const nextTarget = getNextScheduleTarget(st.scheduleTimes);
+            const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.lastScheduleRun);
             if (nextTarget) {
                 document.getElementById('dashNextScheduleTimeText').innerText = nextTarget.timeStr;
                 document.getElementById('dashScheduleCountdownText').innerText = `⏳ Còn lại: ${formatCountdownText(nextTarget.diffSecs)}`;

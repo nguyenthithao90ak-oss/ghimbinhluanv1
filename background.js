@@ -432,12 +432,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
 });
 
-function getNextScheduleTarget(scheduleTimesStr) {
+function getNextScheduleTarget(scheduleTimesStr, lastScheduleRun = null) {
     if (!scheduleTimesStr) return null;
     const times = scheduleTimesStr.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
     if (times.length === 0) return null;
 
     const now = new Date();
+    const curH = now.getHours().toString().padStart(2, '0');
+    const curM = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${curH}:${curM}`;
+
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const nowSeconds = now.getSeconds();
 
@@ -450,7 +454,9 @@ function getNextScheduleTarget(scheduleTimesStr) {
         const slotMinutes = h * 60 + m;
 
         let diffSecs = (slotMinutes - nowMinutes) * 60 - nowSeconds;
-        if (diffSecs <= 0) {
+        
+        // Nếu khung giờ này đã qua HOẶC vừa mới chạy xong ở phút này -> tính sang ngày mai (+24h)
+        if (diffSecs <= 0 || (t === currentTime && lastScheduleRun === currentTime)) {
             diffSecs += 24 * 3600;
         }
 
@@ -467,7 +473,7 @@ function getNextScheduleTarget(scheduleTimesStr) {
 function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
     if (!rawConfigs || rawConfigs.length === 0) return;
 
-    chrome.storage.local.get(['loopStrategy', 'scheduleTimes'], (st) => {
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'lastScheduleRun'], (st) => {
         const isScheduleMode = st.loopStrategy === 'SCHEDULE';
         const now = new Date();
         const curH = now.getHours().toString().padStart(2, '0');
@@ -475,10 +481,10 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
         const currentTime = `${curH}:${curM}`;
         const times = (st.scheduleTimes || '').split(',').map(t => t.trim());
 
-        const isExactScheduledTime = times.includes(currentTime);
+        const isExactScheduledTime = times.includes(currentTime) && st.lastScheduleRun !== currentTime;
 
         if (isScheduleMode && !isExactScheduledTime && !isForcedByScheduler) {
-            const nextTarget = getNextScheduleTarget(st.scheduleTimes);
+            const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.lastScheduleRun);
             const nextStr = nextTarget ? nextTarget.timeStr : 'khung giờ đã chọn';
             addLog(`⏰ CHẾ ĐỘ HẸN GIỜ (GIỜ VÀNG): Đã bật chế độ chờ! Bot chỉ chạy đúng các khung giờ đã cài.`);
             addLog(`⏳ Hiện tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
@@ -491,6 +497,11 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
                 step: "SCHEDULE_WAITING"
             });
             return;
+        }
+
+        // Đã đến đúng khung giờ hoặc được kích hoạt từ Scheduler -> Lưu lại phút này đã chạy
+        if (isScheduleMode) {
+            chrome.storage.local.set({ lastScheduleRun: currentTime });
         }
 
         // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
@@ -524,32 +535,39 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
     });
 }
 
-// Khởi tạo báo thức kiểm tra Giờ Vàng mỗi 6 giây (0.1 phút)
-chrome.alarms.create("autoScheduler", { periodInMinutes: 0.1 });
+function checkAndTriggerGoldenHour() {
+    chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'loopStrategy', 'scheduleTimes', 'pageConfigs', 'lastScheduleRun', 'step'], (state) => {
+        if (state.loopStrategy !== 'SCHEDULE') return;
+        if (!state.scheduleTimes || !state.pageConfigs || state.pageConfigs.length === 0) return;
+        
+        // Nếu bot đang bận xử lý 1 nick trong session (isBotRunning = true, isScheduleWaiting = false), không ngắt quãng
+        if (state.isBotRunning && !state.isScheduleWaiting && state.step !== "SCHEDULE_WAITING") return;
+
+        const now = new Date();
+        const h = now.getHours().toString().padStart(2, '0');
+        const m = now.getMinutes().toString().padStart(2, '0');
+        const currentTime = `${h}:${m}`;
+        
+        const times = state.scheduleTimes.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
+        
+        if (times.includes(currentTime) && state.lastScheduleRun !== currentTime) {
+            chrome.storage.local.set({ lastScheduleRun: currentTime }, () => {
+                addLog(`⏰ AUTO SCHEDULER: ĐÃ ĐẾN GIỜ VÀNG (${currentTime})! Tự động đánh thức và khởi chạy Bot...`);
+                triggerStartProcess(state.pageConfigs, true);
+            });
+        }
+    });
+}
+
+// Chạy kiểm tra Giờ Vàng liên tục mỗi 2 giây trong Background
+setInterval(checkAndTriggerGoldenHour, 2000);
+
+// Đồng thời giữ Alarm mỗi phút để backup nếu Service Worker ngủ
+chrome.alarms.create("autoScheduler", { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "autoScheduler") {
-        chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'loopStrategy', 'scheduleTimes', 'pageConfigs', 'lastScheduleRun', 'step'], (state) => {
-            if (state.loopStrategy !== 'SCHEDULE') return;
-            if (!state.scheduleTimes || !state.pageConfigs || state.pageConfigs.length === 0) return;
-            
-            // Nếu bot đang chạy tiến trình chính (không phải đang SCHEDULE_WAITING), bỏ qua
-            if (state.isBotRunning && !state.isScheduleWaiting && state.step !== "SCHEDULE_WAITING") return;
-
-            const now = new Date();
-            const h = now.getHours().toString().padStart(2, '0');
-            const m = now.getMinutes().toString().padStart(2, '0');
-            const currentTime = `${h}:${m}`;
-            
-            const times = state.scheduleTimes.split(',').map(t => t.trim());
-            
-            if (times.includes(currentTime) && state.lastScheduleRun !== currentTime) {
-                chrome.storage.local.set({ lastScheduleRun: currentTime }, () => {
-                    addLog(`⏰ AUTO SCHEDULER: ĐÃ ĐẾN GIỜ VÀNG (${currentTime})! Tự động đánh thức và khởi chạy Bot...`);
-                    triggerStartProcess(state.pageConfigs, true);
-                });
-            }
-        });
+        checkAndTriggerGoldenHour();
     }
     else if (alarm.name === "singleAccountRepeat") {
         chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'loopStrategy'], (state) => {
