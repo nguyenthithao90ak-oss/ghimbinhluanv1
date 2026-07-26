@@ -1,17 +1,20 @@
 # 🤖 AutoPinBot Mobile Simulator (Bản Web Chrome)
 
-> **Hệ thống tự động hóa chuyển Nick Facebook Mobile, Đăng bài mẫu kèm ảnh & Ghim bình luận (Pin Comment) tự động 100% trên giao diện Chrome.**
+> **Hệ thống tự động hóa chuyển Nick Facebook Mobile, kiểm tra & ghim bình luận (Pin Comment) tự động 100% cho tất cả các Fanpage chỉ định chưa có bài ghim.**
 
 ---
 
 ## 📌 1. Mục Đích Chính Của Dự Án
 
-Hệ thống **AutoPinBot Mobile Simulator** được thiết kế nhằm **tự động hóa 100% quy trình bán hàng & tương tác trên Facebook Fanpage/Reels**, giúp các chủ shop quần áo, thời trang, đồ bộ, gia dụng:
+Mục đích cốt lõi của hệ thống **AutoPinBot Mobile Simulator** là **tự động kiểm tra, gõ bình luận mẫu kèm ảnh và ghim bình luận (Pin Comment) lên tất cả các Fanpage / Nick Facebook được chỉ định mà CHƯA CÓ BÌNH LUẬN GHIM**.
 
-1. **Tiết Kiệm Thời Gian & Công Sức**: Tự động chuyển qua lại hàng chục Fanpage/Nick Facebook chỉ trong vài giây mà không cần thao tác tay thủ công.
-2. **Phủ Sóng Bán Hàng Tối Đa**: Tự động ghim bình luận mẫu (chứa link Shopee, Zalo, bảng giá, mẫu đồ bộ) lên đầu phần bình luận của tất cả các Video Reels trên Fanpage.
-3. **Đảm Bảo An Toàn & Chống Khóa Tính Năng (Anti-Ban)**: Giả lập giao diện di động iPhone 12 Pro, áp dụng độ trễ gõ phím ngẫu nhiên người thật và hỗ trợ xoay IP Proxy an toàn.
-4. **Báo Cáo & Giám Sát Realtime**: Gửi báo cáo chi tiết qua Telegram, thông báo Chrome Desktop và hỗ trợ nút **1-Click Copy Báo Cáo Zalo**.
+Hệ thống giúp các chủ shop quần áo, thời trang, đồ bộ, gia dụng:
+
+1. **Tự Động Quét & Chỉ Ghim Bài Chưa Có Comment**: Nhận diện thông minh các bài viết/video Reels đã có bình luận ghim sẵn ➔ Tự động **bỏ qua (Skip)** để tránh bình luận trùng lặp; chỉ thực hiện gõ text, đăng ảnh và ghim bài đối với các bài/Fanpage **chưa có bài ghim**.
+2. **Tiết Kiệm 95% Thời Gian & Công Sức**: Tự động chuyển đổi qua lại hàng chục Fanpage/Nick Facebook chỉ trong vài giây mà không cần thao tác tay thủ công.
+3. **Phủ Sóng Bán Hàng Tối Đa**: Tự động ghim bình luận mẫu (chứa link Shopee, Zalo, bảng giá, mẫu đồ bộ) lên đầu phần bình luận của tất cả các Video Reels trên các Fanpage chỉ định.
+4. **Đảm Bảo An Toàn & Chống Khóa Tính Năng (Anti-Ban)**: Giả lập giao diện di động iPhone 12 Pro, áp dụng độ trễ gõ phím ngẫu nhiên người thật và hỗ trợ xoay IP Proxy an toàn.
+5. **Báo Cáo & Giám Sát Realtime**: Gửi báo cáo chi tiết qua Telegram, thông báo Chrome Desktop và hỗ trợ nút **1-Click Copy Báo Cáo Zalo**.
 
 ---
 
@@ -21,11 +24,11 @@ Dự án hoạt động dưới dạng một **Chrome Extension Manifest V3**, �
 
 ```mermaid
 graph TD
-    A["🚀 Khởi Động Tiến Trình"] --> B["🔄 Chuyển Nick / Fanpage (m.facebook.com/bookmarks/)"]
+    A["🚀 Khởi Động Tiến Trình"] --> B["🔄 Chuyển Nick / Fanpage Chỉ Định (m.facebook.com/bookmarks/)"]
     B --> C["🌐 Vào Profile & Chọn Video Reels (profile.php)"]
     C --> D{"🔍 Quét Kiểm Tra Bài Ghim Cũ?"}
-    D -- "Đã có ghim sẵn" --> E["ℹ️ Bỏ qua video này (Skip)"]
-    D -- "Chưa có ghim" --> F["⌨️ Gõ Comment (Tốc độ người thật) + Tải Ảnh"]
+    D -- "Đã có bài ghim sẵn" --> E["ℹ️ Bỏ qua video này (Skip)"]
+    D -- "Chưa có bài ghim" --> F["⌨️ Gõ Comment (Tốc độ người thật) + Tải Ảnh"]
     F --> G["📌 Bấm Ghim Bình Luận (Pin Comment)"]
     E --> H["📌 Chuyển Sang Page Tiếp Theo"]
     G --> H
