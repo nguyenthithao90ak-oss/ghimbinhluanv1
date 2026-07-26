@@ -373,25 +373,33 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const currentCfg = state.targetConfigs[state.currentConfigIndex];
             const pageName = request.pageName || currentCfg?.pageName || "Nick";
             
+            // ✅ HỦY WATCHDOG 5 phút ngay khi nhận tin báo lag
+            chrome.alarms.clear('nickSessionTimeout');
+
             if (state.targetConfigs.length === 1) {
                 addLog(`⚠️ Nick "${pageName}" bị lag bình luận! Chế độ 1 Nick: Nghỉ 30s rồi tự động lặp lại từ chỗ Reels...`);
                 addHistoryRecord(pageName, "⚠️ Bị Lag (Nghỉ 30s lặp lại)", "Do Facebook lag bình luận");
                 chrome.alarms.create("singleAccountRepeat", { delayInMinutes: 30 / 60 });
             } else {
-                addLog(`⚠️ Nick "${pageName}" bị lag bình luận (Spinner)! Đã xếp vào hàng đợi thử lại ở phiên sau.`);
-                addHistoryRecord(pageName, "⚠️ Bị Lag (Vòng sau thử lại)", "Do Spinner xoay mòng mòng");
+                addLog(`⚠️ Nick "${pageName}" bị lag bình luận (Spinner)! Đã chuyển ngay sang Nick tiếp theo, xếp "${pageName}" vào hàng chờ thử lại sau.`);
+                addHistoryRecord(pageName, "⚠️ Bị Lag (Cuối phiên thử lại)", "Do Spinner xoay mòng mòng");
                 
-                // Lưu vào danh sách chờ thử lại (Chỉ lưu nếu KHÔNG PHẢI ĐANG TRONG LÚC ĐÃ THỬ LẠI RỒI)
+                // Lưu vào danh sách chờ thử lại & chuyển sang Nick tiếp theo
                 chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (st) => {
-                    if (st.isRetryPhase) return; // Nếu đang trong lúc thử lại mà vẫn lỗi thì bỏ qua luôn (tránh lặp vô hạn)
-                    
                     let queue = st.retryQueue || [];
-                    if (currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
+                    if (!st.isRetryPhase && currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
                         queue.push(currentCfg);
-                        chrome.storage.local.set({ retryQueue: queue });
+                    }
+                    
+                    let nextIdx = state.currentConfigIndex + 1;
+                    if (nextIdx >= state.targetConfigs.length) {
+                        chrome.storage.local.set({ retryQueue: queue }, () => {
+                            chrome.alarms.create("nextPageCooldown", { delayInMinutes: 0.1 / 60 });
+                        });
+                    } else {
+                        chrome.storage.local.set({ retryQueue: queue, currentConfigIndex: nextIdx, step: "SWITCHING" }, processNextStep);
                     }
                 });
-                chrome.storage.local.set({ step: "SWITCHING" }, processNextStep);
             }
         }
         else if (request.action === "pageCompleted" || request.action === "switchFailed") {
@@ -795,35 +803,40 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             const currentCfg = st.targetConfigs && st.targetConfigs[st.currentConfigIndex];
             const pageName = currentCfg?.pageName || 'Nick không xác định';
 
-            addLog(`⏰ WATCHDOG: Nick "${pageName}" chạy QUÁ 5 PHÚT không xong! Có thể bị kẹt/click nhầm. Tự động chuyển sang Nick tiếp theo...`);
+            addLog(`⏰ WATCHDOG: Nick "${pageName}" chạy QUÁ 5 PHÚT không xong! Tự động chuyển ngay sang Nick tiếp theo, xếp "${pageName}" vào hàng chờ thử lại sau...`);
 
             // Báo Telegram
             const botToken = '8678529806:AAHwNim4fRvpg9GbLZytVK6glrJiL8Zvl8o';
             const chatId   = '6139045056';
-            const msg = `⏰ TK "${pageName}" chạy quá 5 phút không xong (có thể bị kẹt) → Bot tự thoát & thử lại sau`;
+            const msg = `⏰ TK "${pageName}" chạy quá 5 phút không xong (bị kẹt) → Tự động chuyển nick tiếp theo & xếp vào hàng chờ thử lại sau!`;
             fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=utf-8' },
                 body: JSON.stringify({ chat_id: chatId, text: msg })
             }).catch(() => {});
 
-            // Xử lý giống nick bị lag: xếp vào retry queue và chuyển sang nick tiếp
+            // Ghi nhận lịch sử
             addHistoryRecord(pageName, '⚠️ Bị Timeout (Watchdog 5phút)', 'Chạy quá 5 phút không xong');
 
             if (st.targetConfigs.length === 1) {
                 addLog(`⏰ Chế độ 1 Nick: Nghỉ 30s rồi lặp lại...`);
                 chrome.alarms.create('singleAccountRepeat', { delayInMinutes: 0.5 });
             } else {
-                // Xếp vào retry queue
-                chrome.storage.local.get(['retryQueue'], (rq) => {
+                // Xếp vào retry queue nếu chưa phải retry phase & chuyển sang Nick tiếp theo
+                chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (rq) => {
                     let queue = rq.retryQueue || [];
-                    if (currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
+                    if (!rq.isRetryPhase && currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
                         queue.push(currentCfg);
-                        chrome.storage.local.set({ retryQueue: queue });
+                    }
+                    let nextIdx = st.currentConfigIndex + 1;
+                    if (nextIdx >= st.targetConfigs.length) {
+                        chrome.storage.local.set({ retryQueue: queue }, () => {
+                            chrome.alarms.create("nextPageCooldown", { delayInMinutes: 0.1 / 60 });
+                        });
+                    } else {
+                        chrome.storage.local.set({ retryQueue: queue, currentConfigIndex: nextIdx, step: 'SWITCHING' }, processNextStep);
                     }
                 });
-                // Chuyển sang nick tiếp
-                chrome.storage.local.set({ step: 'SWITCHING' }, processNextStep);
             }
         });
     }
