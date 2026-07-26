@@ -246,8 +246,10 @@ function addHistoryRecord(pageName, status, details) {
                 actionText = `ℹ️ Bỏ qua (Đã ghim từ trước): "${pageName}"`;
             } else if (isLagged) {
                 actionText = `⚠️ Bị Lag (Sẽ thử lại): "${pageName}"`;
+                playNotificationSound('warning', '⚠️ CẢNH BÁO NICK BỊ LAG', `Nick "${pageName}" bị lag bình luận, đã xếp vào hàng đợi.`);
             } else if (isSuccess) {
                 actionText = `✅ Ghim thành công: "${pageName}" [${timeStr}]`;
+                playNotificationSound('success', '✅ GHIM THÀNH CÔNG', `Nick "${pageName}" đã được ghim bình luận thành công!`);
             } else {
                 return;
             }
@@ -432,39 +434,74 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
 });
 
-function getNextScheduleTarget(scheduleTimesStr, lastScheduleRun = null) {
+function playNotificationSound(type, title, message) {
+    chrome.storage.local.get(['soundNotifyEnable'], (st) => {
+        const enabled = st.soundNotifyEnable !== undefined ? st.soundNotifyEnable : true;
+        if (!enabled) return;
+
+        try {
+            chrome.notifications.create({
+                type: 'basic',
+                iconUrl: 'icon128.png',
+                title: title || '🤖 AutoPinBot Thông Báo',
+                message: message || 'Tiến trình vừa hoàn thành!',
+                priority: 2
+            });
+        } catch(e) {}
+    });
+}
+
+function getNextScheduleTarget(scheduleTimesStr, scheduleDays = [0, 1, 2, 3, 4, 5, 6], lastScheduleRun = null) {
     if (!scheduleTimesStr) return null;
     const times = scheduleTimesStr.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
     if (times.length === 0) return null;
+    if (!scheduleDays || scheduleDays.length === 0) scheduleDays = [0, 1, 2, 3, 4, 5, 6];
 
     const now = new Date();
     const curH = now.getHours().toString().padStart(2, '0');
     const curM = now.getMinutes().toString().padStart(2, '0');
     const currentTime = `${curH}:${curM}`;
+    const todayDay = now.getDay();
 
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const nowSeconds = now.getSeconds();
 
     let candidateSlots = [];
 
-    times.forEach(t => {
-        const parts = t.split(':');
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
-        const slotMinutes = h * 60 + m;
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+        const targetDay = (todayDay + dayOffset) % 7;
+        if (!scheduleDays.includes(targetDay)) continue;
 
-        let diffSecs = (slotMinutes - nowMinutes) * 60 - nowSeconds;
-        
-        // Nếu khung giờ này đã qua HOẶC vừa mới chạy xong ở phút này -> tính sang ngày mai (+24h)
-        if (diffSecs <= 0 || (t === currentTime && lastScheduleRun === currentTime)) {
-            diffSecs += 24 * 3600;
-        }
+        times.forEach(t => {
+            const parts = t.split(':');
+            const h = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            const slotMinutes = h * 60 + m;
 
-        candidateSlots.push({
-            timeStr: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
-            diffSecs: diffSecs
+            let diffSecs = (dayOffset * 86400) + (slotMinutes - nowMinutes) * 60 - nowSeconds;
+            
+            // Nếu là hôm nay (dayOffset === 0) và thời gian đã qua HOẶC vừa mới chạy xong ở phút này
+            if (dayOffset === 0 && (diffSecs <= 0 || (t === currentTime && lastScheduleRun === currentTime))) {
+                return;
+            }
+
+            if (diffSecs > 0) {
+                const dayNames = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+                const dayLabel = dayOffset === 0 ? "Hôm nay" : (dayOffset === 1 ? "Ngày mai" : dayNames[targetDay]);
+                candidateSlots.push({
+                    timeStr: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')} (${dayLabel})`,
+                    diffSecs: diffSecs
+                });
+            }
         });
-    });
+
+        if (candidateSlots.length > 0) break;
+    }
+
+    if (candidateSlots.length === 0) {
+        const firstSlot = times[0];
+        return { timeStr: `${firstSlot} (Tuần sau)`, diffSecs: 7 * 86400 };
+    }
 
     candidateSlots.sort((a, b) => a.diffSecs - b.diffSecs);
     return candidateSlots[0];
@@ -473,18 +510,20 @@ function getNextScheduleTarget(scheduleTimesStr, lastScheduleRun = null) {
 function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
     if (!rawConfigs || rawConfigs.length === 0) return;
 
-    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'lastScheduleRun'], (st) => {
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'scheduleDays', 'lastScheduleRun'], (st) => {
         const isScheduleMode = st.loopStrategy === 'SCHEDULE';
         const now = new Date();
         const curH = now.getHours().toString().padStart(2, '0');
         const curM = now.getMinutes().toString().padStart(2, '0');
         const currentTime = `${curH}:${curM}`;
+        const currentDay = now.getDay();
+        const days = st.scheduleDays || [0, 1, 2, 3, 4, 5, 6];
         const times = (st.scheduleTimes || '').split(',').map(t => t.trim());
 
-        const isExactScheduledTime = times.includes(currentTime) && st.lastScheduleRun !== currentTime;
+        const isExactScheduledTime = days.includes(currentDay) && times.includes(currentTime) && st.lastScheduleRun !== currentTime;
 
         if (isScheduleMode && !isExactScheduledTime && !isForcedByScheduler) {
-            const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.lastScheduleRun);
+            const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.scheduleDays, st.lastScheduleRun);
             const nextStr = nextTarget ? nextTarget.timeStr : 'khung giờ đã chọn';
             addLog(`⏰ CHẾ ĐỘ HẸN GIỜ (GIỜ VÀNG): Đã bật chế độ chờ! Bot chỉ chạy đúng các khung giờ đã cài.`);
             addLog(`⏳ Hiện tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
@@ -536,14 +575,18 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
 }
 
 function checkAndTriggerGoldenHour() {
-    chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'loopStrategy', 'scheduleTimes', 'pageConfigs', 'lastScheduleRun', 'step'], (state) => {
+    chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'loopStrategy', 'scheduleTimes', 'scheduleDays', 'pageConfigs', 'lastScheduleRun', 'step'], (state) => {
         if (state.loopStrategy !== 'SCHEDULE') return;
         if (!state.scheduleTimes || !state.pageConfigs || state.pageConfigs.length === 0) return;
         
+        const now = new Date();
+        const currentDay = now.getDay();
+        const days = state.scheduleDays || [0, 1, 2, 3, 4, 5, 6];
+        if (!days.includes(currentDay)) return;
+
         // Nếu bot đang bận xử lý 1 nick trong session (isBotRunning = true, isScheduleWaiting = false), không ngắt quãng
         if (state.isBotRunning && !state.isScheduleWaiting && state.step !== "SCHEDULE_WAITING") return;
 
-        const now = new Date();
         const h = now.getHours().toString().padStart(2, '0');
         const m = now.getMinutes().toString().padStart(2, '0');
         const currentTime = `${h}:${m}`;

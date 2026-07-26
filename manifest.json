@@ -13,7 +13,8 @@
     "alarms",
     "proxy",
     "webRequest",
-    "webRequestAuthProvider"
+    "webRequestAuthProvider",
+    "notifications"
   ],
   "host_permissions": [
     "*://*.facebook.com/*",

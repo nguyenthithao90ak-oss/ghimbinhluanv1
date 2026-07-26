@@ -74,13 +74,27 @@
             <div class="group" id="scheduleTimeGroup" style="display: none;">
                 <label>Các khung giờ chạy (VD: 08:00, 12:00, 20:00):</label>
                 <input type="text" id="scheduleTimes" value="08:00, 12:00, 20:00" placeholder="Cách nhau dấu phẩy">
-                <small style="color:red; font-size:10px;">Lưu ý: Mở máy và bật Chrome tại các giờ này</small>
+                <label style="margin-top:6px; display:block;">📆 Các ngày chạy trong tuần:</label>
+                <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11px; background:#f8f9fa; padding:4px 6px; border-radius:4px; border:1px solid #eee;">
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="1" checked> T2</label>
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="2" checked> T3</label>
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="3" checked> T4</label>
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="4" checked> T5</label>
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="5" checked> T6</label>
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="6" checked> T7</label>
+                    <label style="cursor:pointer;"><input type="checkbox" class="day-check" value="0" checked> CN</label>
+                </div>
+                <small style="color:red; font-size:10px; display:block; margin-top:3px;">Lưu ý: Mở máy và bật Chrome tại các giờ này</small>
                 <div id="scheduleCountdownBox" style="display: none; margin-top: 8px; padding: 10px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 6px; text-align: center;">
                     <div style="font-size: 11px; font-weight: bold; color: #856404;">⏰ KHUNG GIỜ VÀNG TIẾP THEO: <span id="nextScheduleTimeText" style="color: #d39e00; font-size: 13px;">--:--</span></div>
                     <div id="scheduleCountdownText" style="font-size: 13px; font-weight: bold; color: #111; margin-top: 3px;">⏳ Còn lại: 00 giờ 00 phút 00 giây</div>
                 </div>
             </div>
-            <button id="btnStartCheck" class="btn-main">🚀 BẮT ĐẦU CHUYỂN NICK & CHẠY</button>
+            <div class="group" style="margin-top:6px; border-top:1px dashed #eee; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
+                <label style="font-size:11px; margin:0; cursor:pointer;" for="soundNotifyEnable">🔔 Phát Âm Thanh & Thông Báo Chrome:</label>
+                <input type="checkbox" id="soundNotifyEnable" checked style="width:auto; cursor:pointer;">
+            </div>
+            <button id="btnStartCheck" class="btn-main" style="margin-top:8px;">🚀 BẮT ĐẦU CHUYỂN NICK & CHẠY</button>
         </div>
 
         <div class="card">

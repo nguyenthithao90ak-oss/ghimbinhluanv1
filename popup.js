@@ -104,7 +104,7 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
 });
 
 // Phục hồi trạng thái select box khi mở popup
-chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'reelsPerPage'], (st) => {
+chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'scheduleDays', 'soundNotifyEnable', 'reelsPerPage'], (st) => {
     const reelsEl = document.getElementById('reelsPerPage');
     if (st.reelsPerPage && reelsEl) {
         reelsEl.value = st.reelsPerPage;
@@ -122,6 +122,15 @@ chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'sched
     }
     if (st.scheduleTimes) {
         document.getElementById('scheduleTimes').value = st.scheduleTimes;
+    }
+    if (st.scheduleDays) {
+        document.querySelectorAll('.day-check').forEach(cb => {
+            cb.checked = st.scheduleDays.includes(parseInt(cb.value));
+        });
+    }
+    if (st.soundNotifyEnable !== undefined) {
+        const soundEl = document.getElementById('soundNotifyEnable');
+        if (soundEl) soundEl.checked = st.soundNotifyEnable;
     }
 });
 
@@ -175,19 +184,20 @@ function formatCountdownText(diffSecs) {
 }
 
 function updatePopupCountdown() {
-    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'lastScheduleRun'], (st) => {
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'scheduleDays', 'lastScheduleRun'], (st) => {
         const box = document.getElementById('scheduleCountdownBox');
         if (!box) return;
 
         if (st.loopStrategy === 'SCHEDULE') {
             box.style.display = 'block';
-            const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.lastScheduleRun);
+            const days = st.scheduleDays || [0, 1, 2, 3, 4, 5, 6];
+            const nextTarget = getNextScheduleTarget(st.scheduleTimes, days, st.lastScheduleRun);
             if (nextTarget) {
                 document.getElementById('nextScheduleTimeText').innerText = nextTarget.timeStr;
                 document.getElementById('scheduleCountdownText').innerText = `⏳ Còn lại: ${formatCountdownText(nextTarget.diffSecs)}`;
             } else {
                 document.getElementById('nextScheduleTimeText').innerText = '--:--';
-                document.getElementById('scheduleCountdownText').innerText = 'Vui lòng nhập định dạng HH:mm (VD: 08:20, 12:00)';
+                document.getElementById('scheduleCountdownText').innerText = 'Vui lòng chọn ngày & nhập định dạng HH:mm';
             }
         } else {
             box.style.display = 'none';
@@ -570,6 +580,9 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
         const mode = document.getElementById('runMode').value;
         const strategy = document.getElementById('loopStrategy').value;
         const schedTimes = document.getElementById('scheduleTimes').value.trim();
+        const dayChecks = Array.from(document.querySelectorAll('.day-check:checked')).map(cb => parseInt(cb.value));
+        const soundEl = document.getElementById('soundNotifyEnable');
+        const soundEnable = soundEl ? soundEl.checked : true;
         let targetConfigs = configs;
 
         if (mode === 'SINGLE') {
@@ -586,10 +599,12 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             targetConfigs = shuffled;
         }
 
-        // Lưu trước loopStrategy và scheduleTimes vào Storage
+        // Lưu trước loopStrategy, scheduleTimes, scheduleDays, soundNotifyEnable vào Storage
         chrome.storage.local.set({ 
             loopStrategy: strategy,
-            scheduleTimes: schedTimes
+            scheduleTimes: schedTimes,
+            scheduleDays: dayChecks,
+            soundNotifyEnable: soundEnable
         }, () => {
             chrome.runtime.sendMessage({
                 action: "startMultiAccountProcess",
