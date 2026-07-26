@@ -285,8 +285,9 @@ function addHistoryRecord(pageName, status, details) {
 }
 
 function processNextStep() {
-    chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'currentConfigIndex', 'tabId', 'step'], (state) => {
+    chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'targetConfigs', 'currentConfigIndex', 'tabId', 'step'], (state) => {
         if (!state.isBotRunning) return;
+        if (state.isScheduleWaiting || state.step === "SCHEDULE_WAITING") return; // Tuyệt đối KHÔNG chạy tab khi đang đếm ngược chờ Giờ Vàng!
         
         let { targetConfigs, currentConfigIndex, tabId, step } = state;
         
@@ -331,7 +332,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         chrome.alarms.clearAll(() => {
             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
         });
-        chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
+        chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" });
         addLog("🛑 ĐÃ DỪNG LẠI HOÀN TOÀN TẤT CẢ TÁC VỤ & HẸN GIỜ BOT!");
         console.log("🛑 Dừng tiến trình BOT");
         return;

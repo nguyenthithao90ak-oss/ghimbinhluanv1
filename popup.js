@@ -524,11 +524,19 @@ document.getElementById('configForm').addEventListener('submit', async (e) => {
 });
 
 function updateStartButtonUI() {
-    chrome.storage.local.get(['isBotRunning'], (result) => {
+    chrome.storage.local.get(['isBotRunning', 'isScheduleWaiting', 'loopStrategy', 'scheduleTimes'], (result) => {
         const btn = document.getElementById('btnStartCheck');
+        if (!btn) return;
         if (result.isBotRunning) {
-            btn.innerText = "🛑 DỪNG LẠI (ĐANG CHẠY...)";
-            btn.style.background = "#ff3b30";
+            if (result.isScheduleWaiting) {
+                const nextTarget = getNextScheduleTarget(result.scheduleTimes);
+                const nextStr = nextTarget ? nextTarget.timeStr : '--:--';
+                btn.innerText = `🛑 DỪNG HẸN GIỜ (ĐANG CHỜ ${nextStr}...)`;
+                btn.style.background = "#ff9800";
+            } else {
+                btn.innerText = "🛑 DỪNG LẠI (ĐANG CHẠY...)";
+                btn.style.background = "#ff3b30";
+            }
         } else {
             btn.innerText = "🚀 BẮT ĐẦU CHUYỂN NICK & CHẠY";
             btn.style.background = "#42b72a";
@@ -540,7 +548,7 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
     chrome.storage.local.get(['isBotRunning', 'pageConfigs'], (result) => {
         if (result.isBotRunning) {
             // STOP BOT
-            chrome.storage.local.set({ isBotRunning: false }, () => {
+            chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" }, () => {
                 chrome.runtime.sendMessage({ action: "stopBotProcess" });
                 chrome.storage.local.get(['botLogs'], (res) => {
                     let logs = res.botLogs || [];
@@ -556,6 +564,8 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
         if (configs.length === 0) return alert('Vui lòng thêm ít nhất 1 Mẫu Page ở Tab Cấu Hình trước!');
 
         const mode = document.getElementById('runMode').value;
+        const strategy = document.getElementById('loopStrategy').value;
+        const schedTimes = document.getElementById('scheduleTimes').value.trim();
         let targetConfigs = configs;
 
         if (mode === 'SINGLE') {
@@ -563,8 +573,6 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             targetConfigs = configs.filter(c => c.pageName === selectedName);
         }
 
-        // 🎲 SHUFFLE NGAY TẠI ĐÂY trước khi gửi lên background
-        // Đảm bảo mỗi lần bấm Start thứ tự nick LUÔN LUÔN khác nhau
         if (targetConfigs.length > 1) {
             const shuffled = [...targetConfigs];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -574,16 +582,17 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             targetConfigs = shuffled;
         }
 
+        // Lưu trước loopStrategy và scheduleTimes vào Storage
         chrome.storage.local.set({ 
-            isBotRunning: true,
-            botLogs: [`[${new Date().toLocaleTimeString()}] 🚀 Bắt đầu chạy tiến trình...`] 
+            loopStrategy: strategy,
+            scheduleTimes: schedTimes
         }, () => {
             chrome.runtime.sendMessage({
                 action: "startMultiAccountProcess",
                 targetConfigs: targetConfigs
             });
             renderLogs();
-            updateStartButtonUI();
+            setTimeout(updateStartButtonUI, 300);
         });
     });
 });

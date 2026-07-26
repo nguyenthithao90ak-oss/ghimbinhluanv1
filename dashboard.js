@@ -495,7 +495,7 @@ document.getElementById('btnDashClearHistory').addEventListener('click', () => {
 document.getElementById('btnDashStart').addEventListener('click', () => {
     chrome.storage.local.get(['isBotRunning', 'pageConfigs'], (result) => {
         if (result.isBotRunning) {
-            chrome.storage.local.set({ isBotRunning: false }, () => {
+            chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" }, () => {
                 chrome.runtime.sendMessage({ action: "stopBotProcess" });
                 renderDashboardLogs();
             });
@@ -504,7 +504,6 @@ document.getElementById('btnDashStart').addEventListener('click', () => {
             if (configs.length === 0) return alert('Vui lòng thêm ít nhất 1 Mẫu Page trước khi chạy!');
 
             chrome.storage.local.set({ 
-                isBotRunning: true,
                 botLogs: [`[${new Date().toLocaleTimeString()}] 🚀 Bắt đầu chạy tiến trình từ Dashboard...`] 
             }, () => {
                 chrome.runtime.sendMessage({
