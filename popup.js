@@ -706,87 +706,42 @@ document.getElementById('btnClearHistory').addEventListener('click', () => {
     }
 });
 
-// 📱 HÀM XUẤT TOÀN BỘ DỮ LIỆU + COOKIE FACEBOOK SANG ĐIỆN THOẠI
-// Cookie được lấy qua background.js (Service Worker) để đảm bảo 100% quyền truy cập
-async function getFullBackupData() {
-    return new Promise((resolve) => {
-        chrome.storage.local.get(null, (st) => {
-            // Gửi yêu cầu lấy cookie sang background.js (Service Worker)
-            chrome.runtime.sendMessage({ action: "exportFbCookies" }, (response) => {
-                const cookies = (response && response.cookies) ? response.cookies : [];
-                resolve({
-                    exportDate: new Date().toLocaleString(),
-                    storage: st,
-                    fbCookies: cookies
-                });
-            });
-        });
+// EXPORT BACKUP JSON
+document.getElementById('btnExportBackup').addEventListener('click', () => {
+    chrome.storage.local.get(['pageConfigs', 'runHistory', 'loopStrategy', 'scheduleTimes', 'scheduleDays', 'soundNotifyEnable', 'teleBotToken', 'teleChatId', 'proxyEnable', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (result) => {
+        const backupData = {
+            exportDate: new Date().toISOString(),
+            pageConfigs: result.pageConfigs || [],
+            runHistory: result.runHistory || [],
+            settings: {
+                loopStrategy: result.loopStrategy,
+                scheduleTimes: result.scheduleTimes,
+                scheduleDays: result.scheduleDays,
+                soundNotifyEnable: result.soundNotifyEnable,
+                teleBotToken: result.teleBotToken,
+                teleChatId: result.teleChatId,
+                proxyEnable: result.proxyEnable,
+                proxyHost: result.proxyHost,
+                proxyPort: result.proxyPort,
+                proxyUser: result.proxyUser,
+                proxyPass: result.proxyPass
+            }
+        };
+        const jsonStr = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AutoPin_Backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        alert("🎉 Đã xuất file Sao Lưu (Backup JSON) thành công!");
     });
-}
-
-async function restoreFullData(data) {
-    if (!data || (!data.storage && !data.pageConfigs)) {
-        throw new Error("Dữ liệu khôi phục không hợp lệ!");
-    }
-    const st = data.storage || { pageConfigs: data.pageConfigs, runHistory: data.runHistory };
-    await new Promise(r => chrome.storage.local.set(st, r));
-
-    // Nhập cookie qua background.js (Service Worker) để đảm bảo quyền set cookie
-    if (data.fbCookies && Array.isArray(data.fbCookies) && data.fbCookies.length > 0) {
-        await new Promise((resolve) => {
-            chrome.runtime.sendMessage({ action: "importFbCookies", cookies: data.fbCookies }, (response) => {
-                resolve(response);
-            });
-        });
-    }
-}
-
-// 📦 XUẤT FILE ĐIỆN THOẠI (.JSON)
-document.getElementById('btnExportBackup').addEventListener('click', async () => {
-    const backupData = await getFullBackupData();
-    const jsonStr = JSON.stringify(backupData, null, 2);
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `AutoPin_MobileData_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    alert("🎉 ĐÃ XUẤT GÓI DỮ LIỆU ĐIỆN THOẠI THÀNH CÔNG!\n\nGói dữ liệu bao gồm 15 Mẫu Page + Lịch Hẹn Giờ + Cookie Facebook. Gửi file này sang điện thoại khác nhập vào là xong!");
 });
 
-// 📋 COPY MÃ KHÔI PHỤC (1-CLICK KHÔNG CẦN TẢI FILE)
-const btnCopyText = document.getElementById('btnCopyBackupText');
-if (btnCopyText) {
-    btnCopyText.addEventListener('click', async () => {
-        const backupData = await getFullBackupData();
-        const jsonStr = JSON.stringify(backupData);
-        navigator.clipboard.writeText(jsonStr).then(() => {
-            alert("✅ ĐÃ COPY MÃ KHÔI PHỤC DỮ LIỆU VÀO BỘ NHỚ TẠM!\n\nBác mở Zalo gửi đoạn mã này sang điện thoại khác. Trên điện thoại mới bấm Nhập Dữ Liệu -> Dán mã là xong!");
-        }).catch(err => alert("Lỗi copy mã: " + err));
-    });
-}
-
-// 📤 NHẬP PHỤC HỒI DỮ LIỆU & COOKIE
+// IMPORT RESTORE JSON
 document.getElementById('btnImportBackup').addEventListener('click', () => {
-    const textOrFile = confirm("Bác muốn NHẬP DỰ LIỆU BẰNG MÃ DÁN?\n\n- Bấm [OK] để DÁN MÃ COPY KHÔI PHỤC\n- Bấm [Cancel] để CHỌN FILE .JSON");
-    if (textOrFile) {
-        const pasteCode = prompt("Dán mã khôi phục (JSON string) vào đây:");
-        if (!pasteCode || !pasteCode.trim()) return;
-        try {
-            const data = JSON.parse(pasteCode.trim());
-            restoreFullData(data).then(() => {
-                alert(`🎉 PHỤC HỒI THÀNH CÔNG!\n\nĐã nạp toàn bộ Mẫu Page, Cấu hình và Tự động Đăng nhập Facebook Cookie trên thiết bị này!`);
-                loadConfigs();
-                loadRunPageOptions();
-                renderHistoryTable();
-            }).catch(err => alert("Lỗi khôi phục: " + err.message));
-        } catch(e) {
-            alert("❌ Mã khôi phục không hợp lệ!");
-        }
-    } else {
-        document.getElementById('fileBackupInput').click();
-    }
+    document.getElementById('fileBackupInput').click();
 });
 
 document.getElementById('fileBackupInput').addEventListener('change', (e) => {
@@ -796,12 +751,22 @@ document.getElementById('fileBackupInput').addEventListener('change', (e) => {
     reader.onload = (evt) => {
         try {
             const data = JSON.parse(evt.target.result);
-            restoreFullData(data).then(() => {
-                alert(`🎉 PHỤC HỒI THÀNH CÔNG TỪ FILE!\n\nĐã nạp toàn bộ Mẫu Page, Cấu hình và Tự động Đăng nhập Facebook Cookie trên thiết bị này!`);
+            if (!data.pageConfigs) {
+                return alert("❌ File backup không hợp lệ!");
+            }
+            const st = {
+                pageConfigs: data.pageConfigs || [],
+                runHistory: data.runHistory || []
+            };
+            if (data.settings) {
+                Object.assign(st, data.settings);
+            }
+            chrome.storage.local.set(st, () => {
+                alert(`🎉 Phục hồi dữ liệu thành công! Đã khôi phục ${data.pageConfigs.length} Mẫu Page và toàn bộ cài đặt.`);
                 loadConfigs();
                 loadRunPageOptions();
                 renderHistoryTable();
-            }).catch(err => alert("Lỗi khôi phục: " + err.message));
+            });
         } catch(err) {
             alert("❌ Lỗi đọc file Backup JSON: " + err.message);
         }

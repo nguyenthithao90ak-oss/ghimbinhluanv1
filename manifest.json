@@ -14,8 +14,7 @@
     "proxy",
     "webRequest",
     "webRequestAuthProvider",
-    "notifications",
-    "cookies"
+    "notifications"
   ],
   "host_permissions": [
     "*://*.facebook.com/*",
