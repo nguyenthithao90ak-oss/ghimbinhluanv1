@@ -163,8 +163,16 @@
             <button id="btnSaveTele" style="width:100%; padding:6px; background:#28a745; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">💾 LƯU CẤU HÌNH TELEGRAM</button>
         </div>
 
-        <!-- PROXY CONFIG -->
+        <!-- PROXY STATUS (NEW UI) -->
         <div class="card" style="margin-top: 10px;">
+            <h4 style="margin: 0 0 8px 0; color: #1877f2;">🌐 Trạng Thái Proxy</h4>
+            <div id="activeProxyStatus" style="padding: 10px; background: #e7f3ff; border: 1px solid #1877f2; border-radius: 4px; text-align: center; font-weight: bold; color: #1877f2; font-size: 12px;">
+                Đang tải...
+            </div>
+        </div>
+
+        <!-- OLD PROXY CONFIG (HIDDEN TO PREVENT CRASHES) -->
+        <div class="card" style="margin-top: 10px; display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <h4 style="margin: 0; color: #1877f2;">🌐 Cấu Hình Proxy (Mạng Ảo)</h4>
                 <label style="display: inline-flex; align-items: center; cursor: pointer; gap: 5px; font-weight: bold; color: #333; font-size: 11px;">

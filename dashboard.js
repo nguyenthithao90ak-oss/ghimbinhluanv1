@@ -1,19 +1,14 @@
 const DEFAULT_PRESET_PAGES = [
-    { pageName: "Vựa trái cây cô năm", commentText: "Em xả hàng sầu riêng tại đây https://mua-do-re.web.app/saurieng", imageData: "" },
-    { pageName: "Vựa Trái Cây Cô Út", commentText: "Em xả hàng măng cụt tại đây https://mua-do-re.web.app/mangcut", imageData: "" },
-    { pageName: "Kho Sỉ Đồ Bộ Pijama", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
-    { pageName: "Kho hàng gia dụng giá rẻ", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
-    { pageName: "cửa hàng gia dụng", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
-    { pageName: "Kho sỉ quần áo", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
-    { pageName: "Trinh Shop Đồ Bộ Giá Rẻ", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
-    { pageName: "Xưởng May Pizama Giá Rẻ", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
-    { pageName: "Xưởng May Đồ Bộ Cao Cấp", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
-    { pageName: "Xưởng May Pijama Cao Cấp", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
-    { pageName: "Quần ống rộng giá xưởng", commentText: "Em xả quần ở đây các chị nhấn vào chọn size chọn mẫu nhé https://mua-do-re.web.app/tonghopquan", imageData: "" },
-    { pageName: "Kho hàng thời trang nam nữ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
-    { pageName: "Fashion House Nam Nữ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://mua-do-re.web.app/dobogiare", imageData: "" },
-    { pageName: "Kho hàng gia dụng", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
-    { pageName: "trái câu cô năm", commentText: "Em xả hàng sầu riêng tại đây https://mua-do-re.web.app/saurieng", imageData: "" }
+    { pageName: "Thế Giới Di Động", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
+    { pageName: "Nguyễn Thao Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
+    { pageName: "shop quần giá rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
+    { pageName: "Quần Đẹp Giá Rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
+    { pageName: "Shop Đồ Xinh", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
+    { pageName: "Trái Cây Miền Quê", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" },
+    { pageName: "Vựa Trái Cây Chị Năm", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" },
+    { pageName: "Shop Đồ Bộ Thao Thao", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
+    { pageName: "Xưởng May Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
+    { pageName: "Trái Cây Anh Ba", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" }
 ];
 
 let currentDashImageData = null;

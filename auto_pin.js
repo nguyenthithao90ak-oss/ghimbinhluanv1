@@ -1,4 +1,8 @@
-var delay = (minSec, maxSec = minSec) => {
+// removed duplicate var (minSec, maxSec = minSec) => {
+// =============================================
+// CORE UTILITIES
+// =============================================
+const delay = (minSec, maxSec = minSec) => {
     return new Promise((resolve, reject) => {
         const sec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         let elapsed = 0;
@@ -28,12 +32,33 @@ function safeSendMessage(msgObj) {
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
             chrome.runtime.sendMessage(msgObj, () => {
                 if (chrome.runtime.lastError) {
-                    // Handle lastError safely
-                    const err = chrome.runtime.lastError.message;
+                    // Suppress chrome extension lastError silently
                 }
             });
         }
     } catch(e) {}
+}
+
+// --------------------------------------------------------------------------------------
+// DETECT CHECKPOINT / ACCOUNT RESTRICTION
+// --------------------------------------------------------------------------------------
+function setupBlockDetector(targetPageName) {
+    const checkBlock = () => {
+        const text = (document.body.innerText || '').toLowerCase();
+        if (text.includes('tài khoản của bạn bị hạn chế') ||
+            text.includes('account has been restricted') ||
+            text.includes('checkpoint') ||
+            text.includes('security check') ||
+            text.includes('we suspended your account')) {
+            logMsg('🚨 NGHIÊM TRỌNG: Phát hiện Nick bị CHECKPOINT/HẠN CHẾ! Thoát ngay!');
+            safeSendMessage({ action: 'accountLagged', pageName: targetPageName });
+            return true;
+        }
+        return false;
+    };
+    if (checkBlock()) return true;
+    setInterval(checkBlock, 3000);
+    return false;
 }
 
 function logMsg(msg) {
@@ -155,17 +180,43 @@ async function safeClick(element) {
     element.click();
 }
 
-function findClickableElement(text) {
+function findClickableElement(textOrArray) {
+    let targets = [];
+    if (typeof textOrArray === 'string') targets = [textOrArray.toLowerCase()];
+    else if (Array.isArray(textOrArray)) targets = textOrArray.map(t => t.toLowerCase());
+
+    const isMatch = (str) => {
+        if (!str) return false;
+        str = str.toLowerCase().trim();
+        return targets.some(t => str === t || str.includes(t));
+    };
+
     for (let el of document.querySelectorAll('*')) {
-        if (['SCRIPT','STYLE','NOSCRIPT','HTML','BODY'].includes(el.tagName)) continue;
-        if (el.children.length === 0 && el.innerText && el.innerText.trim().toLowerCase() === text.toLowerCase()) {
+        if (['SCRIPT','STYLE','NOSCRIPT','HTML','BODY','HEAD'].includes(el.tagName)) continue;
+        
+        // Match InnerText (exact or includes if the word is long enough)
+        let textMatch = false;
+        if (el.children.length === 0 && el.innerText) {
+            textMatch = isMatch(el.innerText);
+        }
+
+        // Match Aria-Label / Title (often used by FB for icon buttons)
+        let attrMatch = false;
+        if (!textMatch && (el.tagName === 'DIV' || el.tagName === 'SPAN' || el.tagName === 'I' || el.tagName === 'SVG' || el.tagName === 'A' || el.tagName === 'BUTTON')) {
+            attrMatch = isMatch(el.getAttribute('aria-label')) || isMatch(el.getAttribute('title'));
+        }
+
+        if (textMatch || attrMatch) {
             const r = el.getBoundingClientRect();
-            if (r.width > 0 && r.height > 0) {
+            // Check if element is visible and in viewport
+            if (r.width > 0 && r.height > 0 && r.top >= 0 && r.top <= window.innerHeight) {
                 let p = el;
+                // Traverse up to find the actionable wrapper
                 while (p && p !== document.body) {
-                    if (p.tagName === 'BUTTON' || p.tagName === 'A' || p.getAttribute('role') === 'button' || p.onclick) return p;
+                    if (p.tagName === 'BUTTON' || p.tagName === 'A' || p.getAttribute('role') === 'button' || p.getAttribute('role') === 'link' || p.onclick) return p;
                     p = p.parentElement;
                 }
+                // If no button wrapper found, return the element itself
                 return el;
             }
         }
@@ -222,10 +273,7 @@ async function processSingleReel(cfg, targetPageName) {
             }
 
             // Lớp 2: Quét các nút có icon comment SVG hoặc chữ 'Bình luận' / 'Comment'
-            return findClickableElement('Bình luận') || 
-                   findClickableElement('Comment') || 
-                   findClickableElement('Viết bình luận...') ||
-                   findClickableElement('Write a comment...');
+            return findClickableElement(['Bình luận', 'Comment', 'Viết bình luận', 'Write a comment', 'Reply', 'Trả lời']);
         },
         'Nút Bình luận (Multi-layer Selector)', 4, 2
     );
@@ -240,7 +288,7 @@ async function processSingleReel(cfg, targetPageName) {
     logMsg("🔍 Kiểm tra xem ô bình luận có bị lag (Spinner xoay) không...");
     let isLagging = false;
     
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 1; attempt++) {
         // Kiểm tra xem ô nhập bình luận thực sự có xuất hiện trên màn hình không
         const visibleInput = Array.from(document.querySelectorAll('textarea, div[contenteditable="true"]')).find(el => {
             const r = el.getBoundingClientRect();
@@ -259,21 +307,34 @@ async function processSingleReel(cfg, targetPageName) {
             return false;
         });
 
-        let hasComments = Array.from(document.querySelectorAll('div[role="article"], div[data-sigil="comment"]')).some(el => {
+        // Nhận diện bình luận: Facebook Mobile dùng nhiều cấu trúc khác nhau
+        // Ưu tiên: kiểm tra chữ "Thích", "Trả lời", "Reply" đặc trưng dưới bình luận
+        let hasComments = false;
+
+        // Cách 1: Selector truyền thống
+        hasComments = Array.from(document.querySelectorAll('div[role="article"], div[data-sigil="comment"]')).some(el => {
             const r = el.getBoundingClientRect();
             return r.width > 50 && r.top < window.innerHeight - 50;
         });
 
-        // Fallback: Tìm các chữ đặc trưng của bình luận (Nếu Facebook đổi cấu trúc HTML)
+        // Cách 2: Nhận dạng chữ đặc trưng dưới mỗi bình luận (Facebook Mobile luôn có)
         if (!hasComments) {
-            hasComments = Array.from(document.querySelectorAll('div, span, a')).some(el => {
-                const r = el.getBoundingClientRect();
-                if (r.width === 0 || r.height === 0 || r.top < 50 || r.top > window.innerHeight - 50) return false;
-                const txt = (el.innerText || '').trim().toLowerCase();
-                // Nếu trên màn hình có những chữ này thì chắc chắn là trang đã load comment xong
-                return txt === 'phản hồi' || txt === 'reply' || txt.includes('view previous') || txt.includes('xem bình luận trước');
-            });
+            const allText = (document.body.innerText || '').toLowerCase();
+            // Nếu có chữ "Thích · Trả lời" hoặc "Like · Reply" = có bình luận thật
+            hasComments = allText.includes('phản hồi') || 
+                          allText.includes('trả lời') ||
+                          allText.includes('reply') || 
+                          allText.includes('like · reply') ||
+                          allText.includes('view previous') || 
+                          allText.includes('xem bình luận trước') ||
+                          allText.includes('view more comments') ||
+                          allText.includes('xem thêm bình luận') ||
+                          allText.includes('16 phút') || // timestamp kiểu "X phút" chứng tỏ có bình luận
+                          allText.includes('phút trước') ||
+                          allText.includes('giờ trước') ||
+                          allText.includes('ngày trước');
         }
+
 
         // Bắt chữ "Chưa có bình luận nào" (như sếp miêu tả: nếu có chữ này thì là load xong, bình thường)
         const hasNoCommentsText = Array.from(document.querySelectorAll('div, span')).some(el => {
@@ -292,12 +353,12 @@ async function processSingleReel(cfg, targetPageName) {
         // Ưu tiên 1: Thấy vòng xoay (nếu bắt được)
         if (spinner) {
             isLagging = true;
-            logMsg(`⏳ Phát hiện vòng xoay Loading (Spinner)... (thử lần ${attempt + 1})`);
+            logMsg("⏳ Phát hiện vòng xoay Loading (Spinner)...");
         } 
         // Ưu tiên 2: Trắng tinh, không có cmt, KHÔNG CÓ chữ "Chưa có bình luận nào" -> ĐANG LOAD!
         else if (!isContentLoaded) {
             isLagging = true;
-            logMsg(`⏳ Trang TRẮNG (không có bình luận, không có chữ "Chưa có..."). Chắc chắn đang kẹt Loading! (thử lần ${attempt + 1})`);
+            logMsg("⏳ Trang TRẮNG/Loading (chờ 1 lần rồi tiến hành quét và ghim luôn)...");
         } 
         // Ưu tiên 3: Đã tải xong nội dung (isContentLoaded = true) VÀ có ô nhập liệu -> HOÀN TOÀN BÌNH THƯỜNG
         else if (visibleInput && isContentLoaded) {
@@ -308,9 +369,10 @@ async function processSingleReel(cfg, targetPageName) {
     }
 
     if (isLagging) {
-        logMsg(`⚠️ PHÁT HIỆN BÌNH LUẬN BỊ LAG (Không hiện ô nhập/Spinner)! Bỏ qua Nick "${targetPageName}", sẽ thử lại ở phiên sau.`);
-        safeSendMessage({ action: "accountLagged", pageName: targetPageName });
-        return "LAGGED";
+        logMsg(`⚠️ CẢNH BÁO: Máy chấm bị Lag (Trắng trang/Spinner). Đã VÔ HIỆU HÓA bỏ qua, sẽ cố ép ghi bình luận!`);
+        // Bỏ qua logic tính là lag theo yêu cầu sếp
+        // safeSendMessage({ action: "accountLagged", pageName: targetPageName });
+        // return "LAGGED";
     }
 
     // 4. QUÉT TOÀN MÀN HÌNH KIỂM TRA ĐÃ CÓ BÀI ĐĂNG / GHIM CHƯA
@@ -383,11 +445,19 @@ async function processSingleReel(cfg, targetPageName) {
 
             // Nếu chưa thấy link, trích xuất các từ khóa đặc trưng (dài >= 3 ký tự, không chứa ký tự spintax)
             if (!foundContent) {
-                const textWithoutSpintax = cfg.commentText.replace(/[{}]/g, ' ').replace(/\|/g, ' ');
-                const keywords = cleanText(textWithoutSpintax).split(' ').filter(w => w.length >= 3);
-                if (keywords.length > 0) {
-                    const matched = keywords.filter(w => fullPageText.includes(w));
-                    if (keywords.length <= 3 ? matched.length >= 2 : (matched.length / keywords.length >= 0.5)) {
+                const textWithoutSpintax = cfg.commentText.replace(/\{[^{}]*\}/g, '').replace(/[|{}]/g, ' ');
+                const cleanCfg = cleanText(textWithoutSpintax);
+                // Tìm kiếm một chuỗi dài hơn (thông minh hơn) thay vì từng chữ rời rạc
+                const phrases = cleanCfg.split(/\s+/).filter(w => w.length >= 3);
+                if (phrases.length >= 3) {
+                    // Ghép 3 từ liên tiếp để tìm kiếm cho chính xác
+                    const samplePhrase = phrases.slice(0, 3).join(' ');
+                    if (fullPageText.includes(samplePhrase)) {
+                        foundContent = true;
+                    }
+                } else if (phrases.length > 0) {
+                    const matched = phrases.filter(w => fullPageText.includes(w));
+                    if (matched.length / phrases.length >= 0.8) {
                         foundContent = true;
                     }
                 }
@@ -397,35 +467,34 @@ async function processSingleReel(cfg, targetPageName) {
         // 3. So khớp Biểu tượng ghim 📌, chữ "đã ghim", hoặc nút menu [Comment menu] đã ghim
         let foundPin = fullPageText.includes('đã ghim') || fullPageText.includes('pinned') || fullPageText.includes('📌');
         if (!foundPin) {
-            foundPin = Array.from(document.querySelectorAll('svg, i, span, div, img')).some(el => {
-                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-                const title = (el.getAttribute('title') || '').toLowerCase();
-                const alt = (el.getAttribute('alt') || '').toLowerCase();
-                return aria.includes('ghim') || aria.includes('pinned') || title.includes('ghim') || alt.includes('ghim');
+            const hasPinnedAria = Array.from(document.querySelectorAll('[aria-label], [title]')).some(el => {
+                const attr = (el.getAttribute('aria-label') || el.getAttribute('title') || '').toLowerCase();
+                return attr.includes('đã ghim') || attr.includes('pinned comment') || attr.includes('bỏ ghim');
             });
+            if (hasPinnedAria) foundPin = true;
         }
 
         return { foundName, foundContent, foundPin, isEmpty: false };
     }
 
-    // Chờ 5 lần cho Facebook nạp đầy đủ bình luận (tránh trường hợp mạng lag load chậm)
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    // Chờ 2 lần cho Facebook nạp đầy đủ bình luận (Quét thông minh và nhanh hơn)
+    for (let attempt = 1; attempt <= 2; attempt++) {
         await delay(2, 3);
 
         const { foundName, foundContent, foundPin, isEmpty } = scanFullPageForExistingComment();
 
         if (isEmpty) {
-            logMsg(`💡 [Lần ${attempt}/5] XÁC NHẬN: Bài viết hoàn toàn CHƯA CÓ BÌNH LUẬN NÀO (No comments yet) -> Tiến hành bình luận mới!`);
+            logMsg(`💡 [Lần ${attempt}/2] XÁC NHẬN: Bài viết hoàn toàn CHƯA CÓ BÌNH LUẬN NÀO (No comments yet) -> Tiến hành bình luận mới!`);
             isAlreadyDone = false;
             break;
         }
         
         if (foundContent || foundPin || (foundName && (foundContent || foundPin))) {
-            logMsg(`ℹ️ [Lần ${attempt}/5] XÁC NHẬN: Đã thấy bình luận/ghim cũ trên màn hình (Tên Nick=${foundName}, Nội dung=${foundContent}, Ghim=${foundPin})! -> Bỏ qua video này!`);
+            logMsg(`ℹ️ [Lần ${attempt}/2] XÁC NHẬN: Đã thấy bình luận/ghim cũ trên màn hình (Tên Nick=${foundName}, Nội dung=${foundContent}, Ghim=${foundPin})! -> Bỏ qua video này!`);
             isAlreadyDone = true;
             break;
         } else {
-            logMsg(`🔎 [Lần ${attempt}/5] Quét chưa thấy nội dung cũ, chờ trang load thêm...`);
+            logMsg(`🔎 [Lần ${attempt}/2] Quét chưa thấy nội dung cũ, chờ trang load thêm...`);
         }
     }
 
@@ -469,7 +538,7 @@ async function processSingleReel(cfg, targetPageName) {
                 await delay(1, 3);
 
                 await retryFindAndClick(
-                    () => findClickableElement('Upload photo') || findClickableElement('Tải ảnh lên') || findClickableElement('Upload') || findClickableElement('Tải lên'),
+                    () => findClickableElement(['Upload photo', 'Tải ảnh lên', 'Upload', 'Tải lên', 'Đính kèm']),
                     'Nút Upload Photo', 3, 2
                 );
                 logMsg("⏳ Chờ 4-6s upload ảnh...");
@@ -535,7 +604,7 @@ async function processSingleReel(cfg, targetPageName) {
             if (cornerBtns.length > 0) return cornerBtns[cornerBtns.length - 1];
 
             // Lớp 3: Tìm theo chữ
-            return findClickableElement('Đăng') || findClickableElement('Post') || findClickableElement('Gửi') || findClickableElement('Send');
+            return findClickableElement(['Đăng', 'Post', 'Gửi', 'Send', 'Bình luận']);
         },
         'Nút Gửi bình luận (Multi-layer)', 4, 2
     );
@@ -578,7 +647,7 @@ async function processSingleReel(cfg, targetPageName) {
 
     if (dotsOk) {
         await delay(1, 3);
-        const unpinItem = findClickableElement('Unpin comment') || findClickableElement('Unpin') || findClickableElement('Bỏ ghim bình luận') || findClickableElement('Bỏ ghim');
+        const unpinItem = findClickableElement(['Unpin comment', 'Unpin', 'Bỏ ghim bình luận', 'Bỏ ghim']);
         if (unpinItem) {
             logMsg(`✅ Đã ghim sẵn! Không gỡ.`);
         } else {
@@ -651,7 +720,7 @@ async function runChecking(pageConfigs, targetPageName) {
         // 1. BẤM TAB REELS
         await delay(1, 3);
         const reelsOk = await retryFindAndClick(
-            () => findClickableElement('Reels'),
+            () => findClickableElement(['Reels', 'Video', 'Watch']),
             'Tab Reels', 3, 2
         );
         if (!reelsOk) {
@@ -673,7 +742,7 @@ async function runChecking(pageConfigs, targetPageName) {
                 return true;
             }
             return false;
-        }, 'Danh sách Reels', 3, 5);
+        }, 'Danh sách Reels', 1, 5);
 
         if (reelLinks.length === 0) {
             let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
@@ -708,6 +777,11 @@ async function runChecking(pageConfigs, targetPageName) {
 
         if (currentList.length > 0) {
             await safeClick(currentList[0]);
+            // 🎬 TÍNH NĂNG 1: GIẢ LẬP XEM VIDEO TỰ NHIÊN (RANDOM 4 - 10 GIÂY)
+            const watchSecs = Math.floor(Math.random() * 7) + 4;
+            logMsg("🎬 Giả lập người thật: Đang dừng xem Video Reels tự nhiên (" + watchSecs + " giây)...");
+            await delay(watchSecs);
+            await humanScrollJitter();
         } else {
             logMsg(`⚠️ Không thể mở video đầu tiên. Bỏ qua Page này.`);
             safeSendMessage({ action: "pageCompleted" });

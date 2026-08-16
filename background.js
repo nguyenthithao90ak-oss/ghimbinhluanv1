@@ -1,61 +1,70 @@
-// --- CẤU HÌNH PROXY TỰ ĐỘNG (ĐỘNG TỪ UI POPUP) ---
+// ======================================================================================
+// CẤU HÌNH PROXY HTTP (SẴN SÀNG THÊM DANH SÁCH PROXY HTTP TẠI ĐÂY)
+// Định dạng: { host: "ip", port: 1234, user: "user", pass: "pass" }
+// Hoặc để mảng rỗng [] nếu muốn chạy trực tiếp bằng mạng Wi-Fi gốc
+// ======================================================================================
+let currentProxyIndex = 0;
+
+const HTTP_PROXIES = [
+    // 💡 Sếp có thể thêm proxy HTTP dạng { host: "1.2.3.4", port: 8080, user: "user", pass: "pass" } vào đây:
+    // Ví dụ:
+    // { host: "103.152.112.50", port: 8080, user: "", pass: "" }
+];
+
+// Luôn đảm bảo xóa proxy khi khởi động nếu không có HTTP proxy nào trong danh sách
+if (typeof chrome !== 'undefined' && chrome.proxy) {
+    if (HTTP_PROXIES.length === 0) {
+        chrome.proxy.settings.clear({ scope: "regular" }, () => {
+            chrome.storage.local.set({ activeProxy: "Mạng gốc (Wi-Fi)" });
+            console.log("🛑 Đang sử dụng mạng gốc (Không dùng Proxy).");
+        });
+    }
+}
+
+chrome.webRequest.onAuthRequired.addListener(
+    (details, callbackFn) => {
+        if (details.isProxy && HTTP_PROXIES.length > 0) {
+            const currentProxy = HTTP_PROXIES[currentProxyIndex === 0 ? HTTP_PROXIES.length - 1 : currentProxyIndex - 1];
+            if (currentProxy && currentProxy.user) {
+                callbackFn({ authCredentials: { username: currentProxy.user, password: currentProxy.pass || "" } });
+                return;
+            }
+        }
+        callbackFn({});
+    },
+    { urls: ["<all_urls>"] },
+    ["asyncBlocking"]
+);
+
 function applyProxyFromStorage() {
     if (typeof chrome === 'undefined' || !chrome.proxy) return;
 
-    chrome.storage.local.get(['proxyEnable', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
-        const enabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
-        const host = (st.proxyHost && st.proxyHost.trim()) ? st.proxyHost.trim() : "103.162.30.61";
-        const port = parseInt(st.proxyPort) || 49064;
-        const username = (st.proxyUser && st.proxyUser.trim()) ? st.proxyUser.trim() : "user49064";
-        const password = (st.proxyPass && st.proxyPass.trim()) ? st.proxyPass.trim() : "Gd6O4RL1gK";
+    if (HTTP_PROXIES.length === 0) {
+        chrome.proxy.settings.clear({ scope: "regular" }, () => {
+            chrome.storage.local.set({ activeProxy: "Mạng gốc (Wi-Fi)" });
+        });
+        return;
+    }
 
-        try {
-            if (enabled && host && host !== "123.45.67.89") {
-                const proxySettings = {
-                    mode: "fixed_servers",
-                    rules: {
-                        singleProxy: { scheme: "http", host: host, port: port },
-                        bypassList: ["localhost", "127.0.0.1", "api.telegram.org"]
-                    }
-                };
-                chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
-                    console.log(`✅ Đã BẬT Proxy: ${host}:${port}`);
-                    addLog(`🌐 Đã BẬT Proxy: ${host}:${port}`);
-                });
-
-                if (!self.__proxyAuthListenerAdded) {
-                    self.__proxyAuthListenerAdded = true;
-                    chrome.webRequest.onAuthRequired.addListener(
-                        (details, callbackFn) => {
-                            chrome.storage.local.get(['proxyUser', 'proxyPass'], (pSt) => {
-                                const u = pSt.proxyUser || username;
-                                const p = pSt.proxyPass || password;
-                                if (details.isProxy) {
-                                    callbackFn({ authCredentials: { username: u, password: p } });
-                                } else {
-                                    callbackFn({});
-                                }
-                            });
-                            return true; // Bắt buộc phải có return true để Chrome đợi callback bất đồng bộ
-                        },
-                        { urls: ["<all_urls>"] },
-                        ["asyncBlocking"]
-                    );
-                }
-            } else {
-                chrome.proxy.settings.clear({ scope: "regular" }, () => {
-                    console.log("🛑 Đã TẮT Proxy (Sử dụng mạng gốc Wi-Fi).");
-                    addLog("🌐 Đã TẮT Proxy (Trở về sử dụng mạng gốc Wi-Fi)");
-                });
+    try {
+        const proxy = HTTP_PROXIES[currentProxyIndex];
+        currentProxyIndex = (currentProxyIndex + 1) % HTTP_PROXIES.length;
+        const proxySettings = {
+            mode: "fixed_servers",
+            rules: {
+                singleProxy: { scheme: "http", host: proxy.host, port: parseInt(proxy.port) },
+                bypassList: ["localhost", "127.0.0.1", "api.telegram.org"]
             }
-        } catch (e) {
-            console.error("Lỗi Proxy:", e);
-        }
-    });
+        };
+        chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
+            chrome.storage.local.set({ activeProxy: `HTTP ${proxy.host}:${proxy.port}` });
+            console.log(`✅ Đã BẬT Proxy HTTP: ${proxy.host}:${proxy.port}`);
+            addLog(`🌐 Đã BẬT Proxy HTTP: ${proxy.host}:${proxy.port}`);
+        });
+    } catch (e) {
+        console.error("Lỗi Proxy:", e);
+    }
 }
-
-// Gọi kết nối Proxy khi khởi động
-applyProxyFromStorage();
 
 // ĐĂNG KÝ ALARM TELEGRAM POLL (thay setInterval để không bị Chrome sleep)
 chrome.alarms.get('telegramPoll', (existing) => {
@@ -115,9 +124,9 @@ function printSessionReport(repeatInfoStr = '') {
         let failArr = [];
         
         currentSess.items.forEach(item => {
-            if (item.status.includes('✅') || item.status.includes('ℹ️')) {
+            if (item.status.includes('✅') || item.status.includes('ℹ️')) {
                 if (!successArr.some(p => p.name === item.pageName)) successArr.push({name: item.pageName, time: item.time});
-            } else if (item.status.includes('⚠️') || item.status.includes('❌')) {
+            } else if (item.status.includes('⚠️') || item.status.includes('âŒ')) {
                 if (!failArr.some(p => p.name === item.pageName)) failArr.push({name: item.pageName, time: item.time});
             }
         });
@@ -138,7 +147,7 @@ function printSessionReport(repeatInfoStr = '') {
         }
         
         reportStr += `------------------------------------\n`;
-        reportStr += `⚠️ BỊ LAG / LỖI: ${failArr.length} Page\n`;
+        reportStr += `⚠️ BỊ LAG / LỖI: ${failArr.length} Page\n`;
         if (failArr.length === 0) {
             reportStr += `🎉 Trạng thái: Hoàn hảo! (0 lỗi)\n`;
         } else {
@@ -172,9 +181,9 @@ function printSessionReport(repeatInfoStr = '') {
                 })
             }).then(response => {
                 if(response.ok) addLog('🚀 Đã bắn báo cáo tổng kết phiên qua Telegram thành công!');
-                else addLog('⚠️ Lỗi bắn Telegram: Vui lòng kiểm tra lại Token / Chat ID.');
+                else addLog('⚠️ Lá»—i bắn Telegram: Vui lòng kiểm tra lại Token / Chat ID.');
             }).catch(err => {
-                addLog('⚠️ Lỗi kết nối Telegram: ' + err.message);
+                addLog('⚠️ Lá»—i kết ná»‘i Telegram: ' + err.message);
             });
         }
     });
@@ -202,7 +211,7 @@ function addHistoryRecord(pageName, status, details) {
             currentId = session.id;
         }
 
-        const isLag = status.includes('Lag') || status.includes('⚠️');
+        const isLag = status.includes('Lag') || status.includes('⚠️ ');
         if (isLag) session.lagCount++;
         else session.successCount++;
 
@@ -222,9 +231,12 @@ function addHistoryRecord(pageName, status, details) {
             time: `${dateStr} ${timeStr}`,
             pageName: pageName || "Không xác định",
             status: status,
-            details: details
+            details: details || "Đã kiểm tra / Đăng bài"
         });
-        if (flatHistory.length > 100) flatHistory = flatHistory.slice(0, 100);
+
+        // AUTO-CLEAN: Giữ tá»‘i đa 30 Phiên gần nhất và 1000 bản ghi lá»‹ch sử phẳng
+        if (sessions.length > 30) sessions = sessions.slice(0, 30);
+        if (flatHistory.length > 1000) flatHistory = flatHistory.slice(0, 1000);
 
         chrome.storage.local.set({ 
             sessionHistory: sessions, 
@@ -232,7 +244,7 @@ function addHistoryRecord(pageName, status, details) {
             currentSessionId: currentId 
         });
 
-        // 📱 BẮN TIN TELEGRAM REALTIME mỗi khi 1 nick hoàn thành
+        // “± BẮN TIN TELEGRAM REALTIME mỗi khi 1 nick hoàn thành
         chrome.storage.local.get(['teleBotToken', 'teleChatId', 'targetConfigs', 'currentConfigIndex', 'retryQueue'], (teleRes) => {
             // Dùng token từ storage, hoặc fallback token cứng nếu chưa lưu
             const botToken = (teleRes.teleBotToken && teleRes.teleBotToken.trim()) 
@@ -242,16 +254,16 @@ function addHistoryRecord(pageName, status, details) {
                              ? teleRes.teleChatId.trim() 
                              : '6139045056';
 
-            const isAlreadyPinned = status.includes('ℹ️') || status.toLowerCase().includes('sẵn');
-            const isLagged        = status.includes('⚠️') || status.toLowerCase().includes('lag');
+            const isAlreadyPinned = status.includes('ℹ️') || status.toLowerCase().includes('sẵn');
+            const isLagged        = status.includes('⚠️') || status.toLowerCase().includes('lag');
             const isSuccess       = status.includes('✅');
 
             let actionText = '';
             if (isAlreadyPinned) {
-                actionText = `ℹ️ Bỏ qua (Đã ghim từ trước): "${pageName}"`;
+                actionText = `ℹ️ Bỏ qua (Đã ghim từ trÆ°á»›c): "${pageName}"`;
             } else if (isLagged) {
-                actionText = `⚠️ Bị Lag (Sẽ thử lại): "${pageName}"`;
-                playNotificationSound('warning', '⚠️ CẢNH BÁO NICK BỊ LAG', `Nick "${pageName}" bị lag bình luận, đã xếp vào hàng đợi.`);
+                actionText = `⚠️ Bá»‹ Lag (Sẽ thử lại): "${pageName}"`;
+                playNotificationSound('warning', '⚠️ CẢNH BÁO NICK Bá»Š LAG', `Nick "${pageName}" bị lag bình luận, đã xếp vào hàng đợi.`);
             } else if (isSuccess) {
                 actionText = `✅ Ghim thành công: "${pageName}" [${timeStr}]`;
                 playNotificationSound('success', '✅ GHIM THÀNH CÔNG', `Nick "${pageName}" đã được ghim bình luận thành công!`);
@@ -301,10 +313,14 @@ function processNextStep() {
         if (step === "FINISH") {
             addLog("🎉 ĐÃ HOÀN THÀNH CHU TRÌNH CHO TẤT CẢ CÁC PAGE!");
             chrome.storage.local.set({ isBotRunning: false });
+            if (typeof chrome !== 'undefined' && chrome.proxy) {
+                chrome.proxy.settings.clear({ scope: "regular" });
+                chrome.storage.local.set({ activeProxy: "" });
+            }
             if (tabId) {
                 try {
                     chrome.tabs.remove(tabId);
-                    addLog("🔒 Đã tự động đóng tab vừa hoàn thành!");
+                    addLog("”’ Đã tự động đóng tab vừa hoàn thành!");
                 } catch(e) {}
             }
             return;
@@ -329,10 +345,7 @@ function processNextStep() {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "updateProxySettings") {
-        applyProxyFromStorage();
-        return;
-    }
+    if(request.action === 'updateProxySettings') { return; }
 
     if (request.action === "ping") {
         sendResponse({ status: "alive" });
@@ -346,15 +359,44 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
         });
         chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" });
+        if (typeof chrome !== 'undefined' && chrome.proxy) {
+            chrome.proxy.settings.clear({ scope: "regular" }, () => {
+                chrome.storage.local.set({ activeProxy: "" });
+                addLog("🛑 Đã gỡ bỏ Proxy, trở về mạng gốc.");
+            });
+        }
         addLog("🛑 ĐÃ DỪNG LẠI HOÀN TOÀN TẤT CẢ TÁC VỤ & HẸN GIỜ BOT!");
         console.log("🛑 Dừng tiến trình BOT");
         return;
     }
 
-    if (request.action === "startMultiAccountProcess") {
+        if (request.action === "startMultiAccountProcess") {
         const rawConfigs = request.targetConfigs || [];
         if (rawConfigs.length === 0) return;
-        triggerStartProcess(rawConfigs);
+        
+        // Nếu có cấu hình HTTP_PROXIES thì áp dụng xoay vòng Proxy HTTP
+        if (HTTP_PROXIES.length > 0 && typeof chrome !== 'undefined' && chrome.proxy) {
+            const p = HTTP_PROXIES[currentProxyIndex];
+            currentProxyIndex = (currentProxyIndex + 1) % HTTP_PROXIES.length;
+            const proxyConfig = {
+                mode: "fixed_servers",
+                rules: {
+                    singleProxy: { scheme: "http", host: p.host, port: parseInt(p.port) },
+                    bypassList: ["localhost", "127.0.0.1"]
+                }
+            };
+            chrome.proxy.settings.set({ value: proxyConfig, scope: "regular" }, () => {
+                chrome.storage.local.set({ activeProxy: `HTTP ${p.host}:${p.port}` });
+                addLog(`🌐 Đã đổi IP sang Proxy HTTP: ${p.host}:${p.port}`);
+                triggerStartProcess(rawConfigs);
+            });
+        } else {
+            // Không dùng proxy -> đảm bảo chạy thẳng mạng gốc mượt mà
+            if (typeof chrome !== 'undefined' && chrome.proxy) {
+                chrome.proxy.settings.clear({ scope: "regular" });
+            }
+            triggerStartProcess(rawConfigs);
+        }
         return;
     }
 
@@ -377,12 +419,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.alarms.clear('nickSessionTimeout');
 
             if (state.targetConfigs.length === 1) {
-                addLog(`⚠️ Nick "${pageName}" bị lag bình luận! Chế độ 1 Nick: Nghỉ 30s rồi tự động lặp lại từ chỗ Reels...`);
-                addHistoryRecord(pageName, "⚠️ Bị Lag (Nghỉ 30s lặp lại)", "Do Facebook lag bình luận");
+                addLog(`⚠️ Nick "${pageName}" bị lag bình luận! Chế độ 1 Nick: Nghỉ 30s rồi tự động lặp lại từ chỗ Reels...`);
+                addHistoryRecord(pageName, "⚠️ Bá»‹ Lag (Nghỉ 30s lặp lại)", "Do Facebook lag bình luận");
                 chrome.alarms.create("singleAccountRepeat", { delayInMinutes: 30 / 60 });
             } else {
-                addLog(`⚠️ Nick "${pageName}" bị lag bình luận (Spinner)! Đã chuyển ngay sang Nick tiếp theo, xếp "${pageName}" vào hàng chờ thử lại sau.`);
-                addHistoryRecord(pageName, "⚠️ Bị Lag (Cuối phiên thử lại)", "Do Spinner xoay mòng mòng");
+                addLog(`⚠️ Nick "${pageName}" bị lag bình luận (Spinner)! Đã chuyển ngay sang Nick tiếp theo, xếp "${pageName}" vào hàng chờ thử lại sau.`);
+                addHistoryRecord(pageName, "⚠️ Bá»‹ Lag (Cuá»‘i phiên thử lại)", "Do Spinner xoay mòng mòng");
                 
                 // Lưu vào danh sách chờ thử lại & chuyển sang Nick tiếp theo
                 chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (st) => {
@@ -410,14 +452,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.alarms.clear('nickSessionTimeout');
 
             if (request.alreadyExisted) {
-                addLog(`ℹ️ Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
-                addHistoryRecord(pName, "ℹ️ Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
+                addLog(`ℹ️ Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
+                addHistoryRecord(pName, "ℹ️ Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
             } else if (request.newlyPosted) {
                 addLog(`✅ Page "${pName}": ĐÃ ĐĂNG BÀI MỚI & GHIM THÀNH CÔNG!`);
                 addHistoryRecord(pName, "✅ Đăng & Ghim mới", "Đã đăng bài mẫu + đính kèm ảnh + ghim thành công");
             } else {
-                addLog(`⚠️ Page "${pName}": Thao tác không thành công -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo.`);
-                addHistoryRecord(pName, "⚠️ Thao tác không thành công", "Không thể tìm thấy phần tử hoặc Facebook không phản hồi");
+                addLog(`⚠️ Page "${pName}": Thao tác không thành công -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo.`);
+                addHistoryRecord(pName, "⚠️ Thao tác không thành công", "Không thể tìm thấy phần tử hoặc Facebook không phản hồi");
             }
             
             chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax'], (settings) => {
@@ -428,24 +470,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 if (state.targetConfigs.length === 1) {
                     if (strat === 'ONCE') {
-                        addLog(`🎉 HOÀN TẤT CHẠY 1 LẦN CHO "${pName}" VÀ TỰ ĐỘNG DỪNG LẠI!`);
+                        addLog(`🎉 HOÀN TẤT CHẠY 1 LẦN CHO "${pName}" VÀ TỰ Đá»˜NG DỪNG LẠI!`);
                         printSessionReport('🛑 Đã hoàn thành chạy 1 lần và tự động dừng.');
                         chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
                         chrome.alarms.clearAll(() => {
                             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
                         });
                     } else if (strat === 'CONTINUOUS') {
-                        addLog(`⏳ CHẾ ĐỘ LIÊN TỤC: Nghỉ 30s rồi tự động lặp lại cho "${pName}"...`);
+                        addLog(`⏳ CHẾ Đá»˜ LIÃŠN TỤC: Nghỉ 30s rồi tự động lặp lại cho "${pName}"...`);
                         printSessionReport('♾️ Nghỉ 30 giây rồi tự động lặp lại cho Nick này...');
                         chrome.alarms.create("singleAccountRepeat", { delayInMinutes: 30 / 60 });
                     } else if (strat === 'DELAY') {
-                        addLog(`⏳ CHẾ ĐỘ CÁCH KHOẢNG: Nghỉ ${delayMins} phút rồi lặp lại cho "${pName}"...`);
+                        addLog(`⏳ CHẾ Đá»˜ CÁCH KHOẢNG: Nghỉ ${delayMins} phút rồi lặp lại cho "${pName}"...`);
                         printSessionReport(`⏳ Nghỉ ${delayMins} phút rồi tự động lặp lại cho Nick này...`);
                         chrome.alarms.create("singleAccountRepeat", { delayInMinutes: delayMins });
                     }
                 } else {
-                    addLog(`📌 Chuẩn bị chuyển sang Page tiếp theo (Nghỉ 8-15s)...`);
-                    const cooldownSecs = Math.floor(Math.random() * 7) + 8; 
+                    
+                    const cooldownSecs = Math.floor(Math.random() * 7) + 4; // Random từ 4 đến 10 giây
+                    addLog(`📌 Đã hoàn tất Nick "${pName}". Nghỉ ngơi tự nhiên ${cooldownSecs} giây trước khi chuyển sang Nick tiếp theo...`);
                     chrome.alarms.create("nextPageCooldown", { delayInMinutes: cooldownSecs / 60 });
                 }
             });
@@ -526,10 +569,55 @@ function getNextScheduleTarget(scheduleTimesStr, scheduleDays = [0, 1, 2, 3, 4, 
     return candidateSlots[0];
 }
 
+
+// --------------------------------------------------------------------------------------
+// SMART PRIORITY QUEUE ALGORITHM
+// --------------------------------------------------------------------------------------
+function smartSortConfigs(configs, sessions = []) {
+    if (!configs || configs.length <= 1) return configs;
+    
+    // TỰ ĐỘNG LỌC: Chỉ lấy các phiên trong vòng 3 ngày (72 giờ) gần nhất
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const validSessions = (sessions || []).filter(s => {
+        const sTime = s.createdAt || (s.id && s.id.startsWith('SESSION_') ? parseInt(s.id.replace('SESSION_', '')) : 0);
+        return !sTime || (now - sTime < THREE_DAYS_MS);
+    });
+
+    const recentSessions = validSessions.slice(0, 3);
+    
+    const scoredConfigs = configs.map(config => {
+        let successCount = 0;
+        recentSessions.forEach(session => {
+            if (!session.items) return;
+            const item = session.items.find(i => i.pageName === config.pageName);
+            // ✅ Ghim thành công hoặc ℹ️ Đã có ghim
+            if (item && (item.status.includes('✅') || item.status.includes('ℹ️'))) {
+                successCount++;
+            }
+        });
+        return { config, score: successCount };
+    });
+
+    const groups = { 0: [], 1: [], 2: [], 3: [] };
+    scoredConfigs.forEach(item => {
+        const s = Math.min(item.score, 3);
+        groups[s].push(item.config);
+    });
+
+    let result = [];
+    result = result.concat(shuffleArray(groups[0]));
+    result = result.concat(shuffleArray(groups[1]));
+    result = result.concat(shuffleArray(groups[2]));
+    result = result.concat(shuffleArray(groups[3]));
+    
+    return result;
+}
+
 function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
     if (!rawConfigs || rawConfigs.length === 0) return;
 
-    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'scheduleDays', 'lastScheduleRun'], (st) => {
+    chrome.storage.local.get(['loopStrategy', 'scheduleTimes', 'scheduleDays', 'lastScheduleRun', 'sessionHistory'], (st) => {
         const isScheduleMode = st.loopStrategy === 'SCHEDULE';
         const now = new Date();
         const curH = now.getHours().toString().padStart(2, '0');
@@ -544,8 +632,8 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
         if (isScheduleMode && !isExactScheduledTime && !isForcedByScheduler) {
             const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.scheduleDays, st.lastScheduleRun);
             const nextStr = nextTarget ? nextTarget.timeStr : 'khung giờ đã chọn';
-            addLog(`⏰ CHẾ ĐỘ HẸN GIỜ (GIỜ VÀNG): Đã bật chế độ chờ! Bot chỉ chạy đúng các khung giờ đã cài.`);
-            addLog(`⏳ Hiện tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
+            addLog(`⏰ CHẾ Đá»˜ HẸN GIá»œ (GIá»œ VÀNG): Đã bật chế độ chờ! Bot chá»‰ chạy đúng các khung giờ đã cài.`);
+            addLog(`⏳ Hiá»‡n tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
 
             chrome.storage.local.set({
                 isBotRunning: true,
@@ -563,13 +651,13 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
         }
 
         // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
-        const randomizedConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
+        const randomizedConfigs = rawConfigs.length > 1 ? smartSortConfigs(rawConfigs, st.sessionHistory || []) : rawConfigs;
 
-        console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
+        console.log(`🚀 Bắt đầu chuá»—i tự động cho ${randomizedConfigs.length} Page...`);
         startNewSession(randomizedConfigs);
 
         const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
-        addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
+        addLog(`🎲 CHẾ Đá»˜ THỨ TỰ NGẪU NHIÃŠN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Má»—i Page chạy đúng 1 lần/vòng).`);
         addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
 
         chrome.tabs.create({
@@ -624,7 +712,7 @@ function checkAndTriggerGoldenHour() {
 // Chạy kiểm tra Giờ Vàng liên tục mỗi 2 giây trong Background
 setInterval(checkAndTriggerGoldenHour, 2000);
 
-// Đồng thời giữ Alarm mỗi phút để backup nếu Service Worker ngủ
+// Đá»“ng thời giữ Alarm mỗi phút để backup nếu Service Worker ngủ
 chrome.alarms.create("autoScheduler", { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -668,7 +756,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                         const delayMins = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
 
                         if (strat === 'ONCE') {
-                            addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ ĐỘNG DỪNG LẠI!`);
+                            addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ Đá»˜NG DỪNG LẠI!`);
                             printSessionReport('🛑 Đã hoàn thành phiên chạy 1 lần và tự động dừng.');
                             chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
                             chrome.alarms.clearAll(() => {
@@ -685,7 +773,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                         } else if (strat === 'SCHEDULE') {
                             const nextTarget = getNextScheduleTarget(origSt.scheduleTimes, origSt.scheduleDays, origSt.lastScheduleRun);
                             const nextStr = nextTarget ? nextTarget.timeStr : '--:--';
-                            addLog(`🎉 HOÀN THÀNH PHIÊN CHẠY GIỜ VÀNG CHO ${origConfigs.length} PAGE! Bot tự động quay lại chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
+                            addLog(`🎉 HOÀN THÀNH PHIÊN CHẠY GIá»œ VÀNG CHO ${origConfigs.length} PAGE! Bot tự động quay lại chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
                             printSessionReport(`⏰ Đã hoàn thành phiên Giờ Vàng! Tự động quay về chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
                             chrome.storage.local.set({ isBotRunning: true, isScheduleWaiting: true, step: "SCHEDULE_WAITING" });
                         }
@@ -766,19 +854,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
                             // Báo cáo phiên
                             if (sessions.length === 0) {
-                                reply += '📊 Chưa có dữ liệu phiên chạy!';
+                                reply += '📊 Chưa có dữ liá»‡u phiên chạy!';
                             } else {
                                 const s = sessions[0];
                                 let ok = 0, fail = 0, timeout = 0;
                                 (s.items || []).forEach(it => {
-                                    if (it.status.includes('✅') || it.status.includes('ℹ️')) ok++;
+                                    if (it.status.includes('✅') || it.status.includes('ℹ️')) ok++;
                                     else if (it.status.includes('Timeout')) timeout++;
                                     else fail++;
                                 });
                                 reply += `📊 PHIÊN GẦN NHẤT (${s.startTime}):\n`
                                     + `✅ Ghim thành công: ${ok} nick\n`
                                     + `⏰ Timeout 5ph: ${timeout} nick\n`
-                                    + `⚠️ Lỗi/Lag: ${fail} nick\n`
+                                    + `⚠️ Lá»—i/Lag: ${fail} nick\n`
                                     + `📌 Tổng đã xử lý: ${(s.items||[]).length}/${s.totalPages || '?'} nick\n`
                                     + `\n(Gõ /check bất cứ lúc nào để cập nhật sếp!)`;
                             }
@@ -808,15 +896,15 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             // Báo Telegram
             const botToken = '8678529806:AAHwNim4fRvpg9GbLZytVK6glrJiL8Zvl8o';
             const chatId   = '6139045056';
-            const msg = `⏰ TK "${pageName}" chạy quá 5 phút không xong (bị kẹt) → Tự động chuyển nick tiếp theo & xếp vào hàng chờ thử lại sau!`;
+            const msg = `⏰ TK "${pageName}" chạy quá 5 phút không xong (bị kẹt) ➔ Tự động chuyển nick tiếp theo & xếp vào hàng chờ thử lại sau!`;
             fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=utf-8' },
                 body: JSON.stringify({ chat_id: chatId, text: msg })
             }).catch(() => {});
 
-            // Ghi nhận lịch sử
-            addHistoryRecord(pageName, '⚠️ Bị Timeout (Watchdog 5phút)', 'Chạy quá 5 phút không xong');
+            // Ghi nhận lá»‹ch sử
+            addHistoryRecord(pageName, '⚠️ Bá»‹ Timeout (Watchdog 5phút)', 'Chạy quá 5 phút không xong');
 
             if (st.targetConfigs.length === 1) {
                 addLog(`⏰ Chế độ 1 Nick: Nghỉ 30s rồi lặp lại...`);
@@ -904,7 +992,7 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
 });
 
 // ==========================================
-// TELEGRAM BOT POLLING (NHẬN LỆNH TỪ ĐIỆN THOẠI)
+// TELEGRAM BOT POLLING (NHẬN Lá»†NH TỪ ĐIá»†N THOẠI)
 // ==========================================
 setInterval(() => {
     chrome.storage.local.get(['teleBotToken', 'teleLastUpdateId', 'sessionHistory'], (res) => {
@@ -920,26 +1008,26 @@ setInterval(() => {
                         nextOffset = update.update_id + 1;
                         if (update.message && update.message.text) {
                             const text = update.message.text.toLowerCase();
-                            // Nhận diện lệnh "hon hac thao" và các lệnh kiểm tra khác
+                            // Nhận diá»‡n lá»‡nh "hon hac thao" và các lá»‡nh kiểm tra khác
                             if (text.includes('hon hac thao') || text.includes('/check') || text.includes('báo cáo') || text.includes('bao cao') || text.includes('hỏi hệ thống') || text.includes('kiểm tra')) {
                                 
                                 const sessions = res.sessionHistory || [];
-                                let replyText = "❌ Hệ thống chưa chạy phiên nào hoặc chưa có dữ liệu báo cáo gần nhất!";
+                                let replyText = "âŒ Há»‡ thống chưa chạy phiên nào hoặc chưa có dữ liá»‡u báo cáo gần nhất!";
                                 
                                 if (sessions.length > 0) {
                                     const currentSess = sessions[0];
                                     let successCount = 0;
                                     let failCount = 0;
                                     currentSess.items.forEach(item => {
-                                        if (item.status.includes('✅') || item.status.includes('ℹ️')) successCount++;
+                                        if (item.status.includes('✅') || item.status.includes('ℹ️')) successCount++;
                                         else failCount++;
                                     });
-                                    replyText = `🤖 BÁO CÁO NHANH TỪ AUTO BOT:\n`;
+                                    replyText = `¤– BÁO CÁO NHANH TỪ AUTO BOT:\n`;
                                     replyText += `Phiên chạy lúc: ${currentSess.startTime}\n`;
                                     replyText += `Tổng số nick đã quét: ${currentSess.items.length}\n`;
                                     replyText += `✅ Thành công: ${successCount} nick\n`;
-                                    replyText += `⚠️ Lỗi/Lag: ${failCount} nick\n\n`;
-                                    replyText += `(Để xem chi tiết, hãy chờ hệ thống chạy xong vòng hiện tại nhé sếp!)`;
+                                    replyText += `⚠️ Lá»—i/Lag: ${failCount} nick\n\n`;
+                                    replyText += `(Đá»ƒ xem chi tiết, hãy chờ hệ thống chạy xong vòng hiện tại nhé sếp!)`;
                                 }
 
                                 fetch(`https://api.telegram.org/bot${res.teleBotToken}/sendMessage`, {
@@ -956,3 +1044,5 @@ setInterval(() => {
             .catch(e => {});
     });
 }, 5000);
+
+
