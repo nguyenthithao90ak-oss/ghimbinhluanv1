@@ -308,7 +308,7 @@ async function autoLikeTopComments() {
             }
             logMsg(`🎉 ĐÃ LIKE XONG ĐỦ ${count} BÌNH LUẬN ĐẦU TIÊN ĐỂ TĂNG TƯƠNG TÁC!`);
         } else {
-            logMsg("ℹ️ Video không có bình luận hoặc đã được Like sẵn -> Tự động bỏ qua ngay lập tức, tiếp tục tiến trình!");
+            logMsg("ℹ️ Bình luận đã có trạng thái 'Đã thích' từ trước hoặc không có bình luận nào cần Like -> Bỏ qua, giữ nguyên!");
         }
     } catch (err) {
         logMsg(`⚠️ Không thể tự động Like bình luận: ${err.message}`);
