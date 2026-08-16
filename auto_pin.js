@@ -88,6 +88,20 @@ function cleanName(str) {
         .trim();
 }
 
+
+// Hàm phân tích số lượt xem (View Parser)
+function parseViewCount(text) {
+    if (!text) return 0;
+    const clean = text.toString().toLowerCase().trim().replace(/,/g, '.');
+    const mMatch = clean.match(/([\d\.]+)\s*(m|triệu|tr)/);
+    if (mMatch) return parseFloat(mMatch[1]) * 1000000;
+    const kMatch = clean.match(/([\d\.]+)\s*(k|nghìn|ngàn)/);
+    if (kMatch) return parseFloat(kMatch[1]) * 1000;
+    const numMatch = clean.match(/([\d\.]+)/);
+    if (numMatch) return parseFloat(numMatch[1]) || 0;
+    return 0;
+}
+
 function parseSpintax(text) {
     if (!text) return text;
     let match;
