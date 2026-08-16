@@ -6,9 +6,7 @@
 let currentProxyIndex = 0;
 
 const HTTP_PROXIES = [
-    // 💡 Sếp có thể thêm proxy HTTP dạng { host: "1.2.3.4", port: 8080, user: "user", pass: "pass" } vào đây:
-    // Ví dụ:
-    // { host: "103.152.112.50", port: 8080, user: "", pass: "" }
+    { host: "103.162.30.61", port: 49064, user: "user49064", pass: "Gd6O4RL1gK" }
 ];
 
 // Luôn đảm bảo xóa proxy khi khởi động nếu không có HTTP proxy nào trong danh sách
@@ -24,7 +22,7 @@ if (typeof chrome !== 'undefined' && chrome.proxy) {
 chrome.webRequest.onAuthRequired.addListener(
     (details, callbackFn) => {
         if (details.isProxy && HTTP_PROXIES.length > 0) {
-            const currentProxy = HTTP_PROXIES[currentProxyIndex === 0 ? HTTP_PROXIES.length - 1 : currentProxyIndex - 1];
+            const currentProxy = HTTP_PROXIES.find(p => p.host === details.challenger?.host) || HTTP_PROXIES[0];
             if (currentProxy && currentProxy.user) {
                 callbackFn({ authCredentials: { username: currentProxy.user, password: currentProxy.pass || "" } });
                 return;
@@ -35,6 +33,8 @@ chrome.webRequest.onAuthRequired.addListener(
     { urls: ["<all_urls>"] },
     ["asyncBlocking"]
 );
+
+applyProxyFromStorage();
 
 function applyProxyFromStorage() {
     if (typeof chrome === 'undefined' || !chrome.proxy) return;
