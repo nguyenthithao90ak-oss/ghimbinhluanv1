@@ -580,42 +580,53 @@ async function processSingleReel(cfg, targetPageName) {
         return false;
     }
 
-    // 5. ĐÍNH KÈM ẢNH
+    // 5. ĐÍNH KÈM ẢNH (TRỰC TIẾP QUA INPUT FILE - TUYỆT ĐỐI KHÔNG CLICK VÀO ẢNH ĐÃ ĐĂNG PHÍA TRÊN)
     if (cfg.imageData) {
-        logMsg("🖼️ Đính kèm ảnh...");
-        await retryFindAndClick(
-            () => Array.from(document.querySelectorAll('div, span, svg, i')).find(el => {
-                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-                return aria.includes('ảnh') || aria.includes('photo') || aria.includes('đính kèm');
-            }),
-            'Nút Camera/Ảnh', 3, 2
-        );
-        await delay(1, 3);
+        logMsg("🖼️ Đang nạp ảnh đính kèm...");
+        try {
+            // 1. Tìm trực tiếp input[type="file"] trong DOM (Facebook Mobile luôn có sẵn)
+            let fileInput = document.querySelector('input[type="file"]') || 
+                            Array.from(document.querySelectorAll('input')).find(i => i.type === 'file');
 
-        let fileInput = await retryFind(
-            () => document.querySelector('input[type="file"]') || Array.from(document.querySelectorAll('input')).find(i => i.type === 'file'),
-            'Input chọn file', 3, 2
-        );
-        if (fileInput) {
-            try {
+            // 2. Nếu chưa thấy input file, chỉ tìm icon Camera nhỏ ở góc dưới cùng bên trái thanh nhập liệu
+            if (!fileInput) {
+                const bottomPhotoIcon = Array.from(document.querySelectorAll('button, div[role="button"], label, div, span, svg')).find(el => {
+                    const r = el.getBoundingClientRect();
+                    // Bắt buộc: Nằm sát đáy màn hình (r.top > window.innerHeight - 90), góc bên trái (r.left < 80), kích thước nhỏ (<50px)
+                    if (r.width === 0 || r.height === 0 || r.height > 50 || r.width > 50) return false;
+                    if (r.top < window.innerHeight - 90) return false;
+                    if (r.left > 80) return false;
+                    if (el.tagName === 'IMG' || el.querySelector('img')) return false;
+
+                    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                    const title = (el.getAttribute('title') || '').toLowerCase();
+                    return aria.includes('ảnh') || aria.includes('photo') || aria.includes('đính kèm') || aria.includes('camera') ||
+                           title.includes('ảnh') || title.includes('photo') || el.querySelector('input[type="file"]');
+                });
+
+                if (bottomPhotoIcon) {
+                    if (typeof bottomPhotoIcon.click === 'function') bottomPhotoIcon.click();
+                    await delay(1, 2);
+                    fileInput = document.querySelector('input[type="file"]') || 
+                                Array.from(document.querySelectorAll('input')).find(i => i.type === 'file');
+                }
+            }
+
+            // 3. Nạp file ảnh trực tiếp qua DataTransfer
+            if (fileInput) {
                 const imageFile = dataURLtoFile(cfg.imageData, 'photo.jpg');
                 const dt = new DataTransfer();
                 dt.items.add(imageFile);
                 fileInput.files = dt.files;
                 fileInput.dispatchEvent(new Event('input', { bubbles: true }));
                 fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-                logMsg("✅ Đã nạp ảnh!");
-                await delay(1, 3);
-
-                await retryFindAndClick(
-                    () => findClickableElement(['Upload photo', 'Tải ảnh lên', 'Upload', 'Tải lên', 'Đính kèm']),
-                    'Nút Upload Photo', 3, 2
-                );
-                logMsg("⏳ Chờ 4-6s upload ảnh...");
-                await delay(4, 6);
-            } catch (err) {
-                logMsg(`⚠️ Lỗi ảnh: ${err.message}`);
+                logMsg("✅ Đã nạp ảnh vào khung bình luận thành công!");
+                await delay(2, 3);
+            } else {
+                logMsg("ℹ️ Không tìm thấy ô nạp ảnh (input file) -> Tiếp tục gõ nội dung.");
             }
+        } catch (err) {
+            logMsg(`⚠️ Lỗi đính kèm ảnh: ${err.message}`);
         }
     }
 
