@@ -300,12 +300,19 @@ async function autoLikeOwnPinnedComment() {
                                    aria.includes('đã thích') || aria.includes('bỏ thích') || aria.includes('bày tỏ cảm xúc');
 
             if (isAlreadyLiked) {
-                logMsg("ℹ️ Bình luận của mình ĐÃ CÓ TRẠNG THÁI 'ĐÃ THÍCH' từ trước -> Giữ nguyên, không bấm lại!");
-            } else {
-                await safeClick(ownLikeBtn);
-                logMsg("❤️ ĐÃ BẤM THÍCH THÀNH CÔNG ĐÚNG BÌNH LUẬN CỦA MÌNH (1 LẦN DUY NHẤT)!");
-                await delay(1, 2);
+                logMsg("ℹ️ Bình luận của mình ĐÃ CÓ TRẠNG THÁI 'ĐÃ THÍCH' từ trước -> Giữ nguyên, tuyệt đối không bấm lại!");
+                return;
             }
+
+            // Click trực tiếp ĐÚNG 1 LẦN DUY NHẤT bằng click() để không bị kích hoạt 2 lần
+            ownLikeBtn.style.border = "2px solid #22c55e";
+            if (typeof ownLikeBtn.click === 'function') {
+                ownLikeBtn.click();
+            } else {
+                ownLikeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            }
+            logMsg("❤️ ĐÃ BẤM THÍCH THÀNH CÔNG ĐÚNG BÌNH LUẬN CỦA MÌNH (1 LẦN DUY NHẤT)!");
+            await delay(2, 3);
         } else {
             logMsg("ℹ️ Không tìm thấy nút Thích của bình luận -> Tiếp tục tiến trình.");
         }
