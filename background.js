@@ -39,7 +39,23 @@ chrome.webRequest.onAuthRequired.addListener(
     ["asyncBlocking"]
 );
 
-applyProxyFromStorage();
+// TỰ ĐỘNG KHỞI TẠO VÀ LƯU PROXY VÀO STORAGE KHI KHỞI ĐỘNG
+chrome.storage.local.get(['proxyHost', 'proxyPort', 'proxyUser', 'proxyPass', 'proxyEnable'], (st) => {
+    if (!st.proxyHost || !st.proxyPort) {
+        chrome.storage.local.set({
+            proxyEnable: true,
+            proxyScheme: 'http',
+            proxyHost: '103.162.30.61',
+            proxyPort: 49064,
+            proxyUser: 'user49064',
+            proxyPass: 'Gd6O4RL1gK'
+        }, () => {
+            applyProxyFromStorage();
+        });
+    } else {
+        applyProxyFromStorage();
+    }
+});
 
 function applyProxyFromStorage() {
     if (typeof chrome === 'undefined' || !chrome.proxy) return;
