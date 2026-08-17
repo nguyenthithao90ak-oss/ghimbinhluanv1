@@ -266,49 +266,48 @@ async function retryFindAndClick(findFn, description, maxRetries = 3, waitSec = 
 
 // XỬ LÝ 1 VIDEO REELS
 
-// =================== TỰ ĐỘNG THẢ TIM / LIKE 3 - 4 BÌNH LUẬN ĐẦU TIÊN ===================
-async function autoLikeTopComments() {
+// =================== TỰ ĐỘNG THẢ TIM / LIKE ĐÚNG 1 LẦN BÌNH LUẬN CỦA MÌNH ===================
+async function autoLikeOwnPinnedComment() {
     try {
-        logMsg("❤️ Đang quét các bình luận để tự động Thả Tim tương tác...");
+        logMsg("❤️ Đang kiểm tra nút Thích cho bình luận của mình...");
         await delay(1, 2);
 
-        // Tìm tất cả các nút Thích (Like) của bình luận trên màn hình (theo chuẩn DevTools aria-label="Nút Thích...")
-        const likeButtons = Array.from(document.querySelectorAll('div[role="button"], span, a, button, div.m')).filter(el => {
+        // Tìm các phần tử nút Thích của bình luận trên màn hình
+        const allCommentLikeElements = Array.from(document.querySelectorAll('div[role="button"], span, a, button, div.m')).filter(el => {
             const r = el.getBoundingClientRect();
-            // Nút Like bình luận nằm trong khung bình luận (không phải nút like video ở header)
+            // Nút Like bình luận nằm trong khung danh sách bình luận (bỏ qua nút like bài viết ở trên cùng)
             if (r.width === 0 || r.height === 0 || r.height > 50 || r.top < 60 || r.top > window.innerHeight - 80) return false;
             
             const txt = (el.innerText || '').trim().toLowerCase();
             const aria = (el.getAttribute('aria-label') || '').toLowerCase();
             
-            // Khớp chính xác aria-label theo DevTools: "Nút Thích. Nhấn đúp và giữ..." hoặc chữ "Thích"
             const isLikeBtn = txt === 'thích' || txt === 'like' || 
                               aria.includes('nút thích') || aria === 'thích' || aria.startsWith('nút thích') ||
                               aria.includes('like button') || aria === 'like';
                               
-            // Bỏ qua nếu đã Like rồi (chữ "Đã thích", "Bỏ thích", "Unlike" hoặc aria chứa "bỏ thích" / "đã thích")
             const isAlreadyLiked = txt === 'đã thích' || txt === 'bỏ thích' || txt === 'unlike' || 
                                    aria.includes('đã thích') || aria.includes('bỏ thích') || aria.includes('bày tỏ cảm xúc');
             
-            return isLikeBtn && !isAlreadyLiked;
+            return isLikeBtn || isAlreadyLiked;
         });
 
-        if (likeButtons.length > 0) {
-            // Lựa chọn bấm Like đủ 3 đến 4 bình luận đầu tiên
-            const targetLikes = Math.min(likeButtons.length, Math.floor(Math.random() * 2) + 3); // 3 hoặc 4 cái
-            logMsg(`❤️ Tìm thấy ${likeButtons.length} bình luận chưa Like. Bắt đầu bấm Like cho ${targetLikes} bình luận đầu tiên...`);
-            
-            let count = 0;
-            for (let i = 0; i < likeButtons.length && count < targetLikes; i++) {
-                const btn = likeButtons[i];
-                await safeClick(btn);
-                count++;
-                logMsg(`❤️ [${count}/${targetLikes}] Đã Like bình luận thành công!`);
-                await delay(1, 3); // Nghỉ 1-3s giữa mỗi lần bấm like để tự nhiên như người thật
+        if (allCommentLikeElements.length > 0) {
+            // Lấy đúng nút Thích của bình luận đầu tiên trên cùng (bình luận đã ghim của chính mình)
+            const ownLikeBtn = allCommentLikeElements[0];
+            const txt = (ownLikeBtn.innerText || '').trim().toLowerCase();
+            const aria = (ownLikeBtn.getAttribute('aria-label') || '').toLowerCase();
+            const isAlreadyLiked = txt === 'đã thích' || txt === 'bỏ thích' || txt === 'unlike' || 
+                                   aria.includes('đã thích') || aria.includes('bỏ thích') || aria.includes('bày tỏ cảm xúc');
+
+            if (isAlreadyLiked) {
+                logMsg("ℹ️ Bình luận của mình ĐÃ CÓ TRẠNG THÁI 'ĐÃ THÍCH' từ trước -> Giữ nguyên, không bấm lại!");
+            } else {
+                await safeClick(ownLikeBtn);
+                logMsg("❤️ ĐÃ BẤM THÍCH THÀNH CÔNG ĐÚNG BÌNH LUẬN CỦA MÌNH (1 LẦN DUY NHẤT)!");
+                await delay(1, 2);
             }
-            logMsg(`🎉 ĐÃ LIKE XONG ĐỦ ${count} BÌNH LUẬN ĐẦU TIÊN ĐỂ TĂNG TƯƠNG TÁC!`);
         } else {
-            logMsg("ℹ️ Bình luận đã có trạng thái 'Đã thích' từ trước hoặc không có bình luận nào cần Like -> Bỏ qua, giữ nguyên!");
+            logMsg("ℹ️ Không tìm thấy nút Thích của bình luận -> Tiếp tục tiến trình.");
         }
     } catch (err) {
         logMsg(`⚠️ Không thể tự động Like bình luận: ${err.message}`);
@@ -714,7 +713,7 @@ async function processSingleReel(cfg, targetPageName) {
         const unpinItem = findClickableElement(['Unpin comment', 'Unpin', 'Bỏ ghim bình luận', 'Bỏ ghim']);
         if (unpinItem) {
             logMsg(`✅ Đã ghim sẵn! Không gỡ.`);
-            await autoLikeTopComments();
+            await autoLikeOwnPinnedComment();
         } else {
             const pinOk = await retryFindAndClick(
                 () => findClickableElement('Pin comment') || 
@@ -731,7 +730,7 @@ async function processSingleReel(cfg, targetPageName) {
                 logMsg(`✅ ĐÃ BẤM GHIM! Đợi thêm 5 giây để Facebook ghi nhận...`);
                 await delay(5, 6);
                 logMsg(`🎉 HOÀN TẤT! Bình luận đã được ghim thành công cho Nick này!`);
-                await autoLikeTopComments();
+                await autoLikeOwnPinnedComment();
             }
         }
     }
