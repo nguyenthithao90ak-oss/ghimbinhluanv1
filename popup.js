@@ -1,3 +1,34 @@
+
+function sanitizeLogText(str) {
+    if (!str) return '';
+    return str
+        .replace(/Ÿ¢|Ÿ\$/g, '🟢')
+        .replace(/Ÿ/g, '🟢')
+        .replace(/”´/g, '🔴')
+        .replace(/”„/g, '🔄')
+        .replace(/”’/g, '🚪')
+        .replace(/”/g, '')
+        .replace(/“±/g, '📱')
+        .replace(/“/g, '')
+        .replace(/Ž‰|Ž/g, '🎉')
+        .replace(/â Œ/g, '❌')
+        .replace(/â™¾️|â™¾/g, '♾️')
+        .replace(/¤–|¤/g, '🤖')
+        .replace(/Tá»”NG KẾT/g, 'TỔNG KẾT')
+        .replace(/Tá»”NG/g, 'TỔNG')
+        .replace(/Bá»Š LAG \/ Lá»–I/g, 'BỊ LAG / LỖI')
+        .replace(/Bá»Š/g, 'BỊ')
+        .replace(/Lá»–I/g, 'LỖI')
+        .replace(/Lá»—i/g, 'Lỗi')
+        .replace(/lá»—i/g, 'lỗi')
+        .replace(/bá»‹/g, 'bị')
+        .replace(/TỰ Đ á»˜NG/g, 'TỰ ĐỘNG')
+        .replace(/CHẾ Đ á»˜/g, 'CHẾ ĐỘ')
+        .replace(/chế đá»™/g, 'chế độ')
+        .replace(/Chuyá»ƒn/g, 'Chuyển')
+        .replace(/Nghá»‰/g, 'Nghỉ');
+}
+
 const DEFAULT_PRESET_PAGES = [
     { pageName: "Thế Giới Di Động", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
     { pageName: "Nguyễn Thao Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },

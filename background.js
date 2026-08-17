@@ -181,9 +181,9 @@ function printSessionReport(repeatInfoStr = '') {
                 })
             }).then(response => {
                 if(response.ok) addLog('🚀 Đã bắn báo cáo tổng kết phiên qua Telegram thành công!');
-                else addLog('⚠️ Lá»—i bắn Telegram: Vui lòng kiểm tra lại Token / Chat ID.');
+                else addLog('⚠️ Lỗi bắn Telegram: Vui lòng kiểm tra lại Token / Chat ID.');
             }).catch(err => {
-                addLog('⚠️ Lá»—i kết ná»‘i Telegram: ' + err.message);
+                addLog('⚠️ Lỗi kết nối Telegram: ' + err.message);
             });
         }
     });
@@ -234,7 +234,7 @@ function addHistoryRecord(pageName, status, details) {
             details: details || "Đã kiểm tra / Đăng bài"
         });
 
-        // AUTO-CLEAN: Giữ tá»‘i đa 30 Phiên gần nhất và 1000 bản ghi lá»‹ch sử phẳng
+        // AUTO-CLEAN: Giữ tối đa 30 Phiên gần nhất và 1000 bản ghi lịch sử phẳng
         if (sessions.length > 30) sessions = sessions.slice(0, 30);
         if (flatHistory.length > 1000) flatHistory = flatHistory.slice(0, 1000);
 
@@ -244,7 +244,7 @@ function addHistoryRecord(pageName, status, details) {
             currentSessionId: currentId 
         });
 
-        // “± BẮN TIN TELEGRAM REALTIME mỗi khi 1 nick hoàn thành
+        // 📱 BẮN TIN TELEGRAM REALTIME mỗi khi 1 nick hoàn thành
         chrome.storage.local.get(['teleBotToken', 'teleChatId', 'targetConfigs', 'currentConfigIndex', 'retryQueue'], (teleRes) => {
             // Dùng token từ storage, hoặc fallback token cứng nếu chưa lưu
             const botToken = (teleRes.teleBotToken && teleRes.teleBotToken.trim()) 
@@ -260,10 +260,10 @@ function addHistoryRecord(pageName, status, details) {
 
             let actionText = '';
             if (isAlreadyPinned) {
-                actionText = `ℹ️ Bỏ qua (Đã ghim từ trÆ°á»›c): "${pageName}"`;
+                actionText = `ℹ️ Bỏ qua (Đã ghim từ trước): "${pageName}"`;
             } else if (isLagged) {
-                actionText = `⚠️ Bá»‹ Lag (Sẽ thử lại): "${pageName}"`;
-                playNotificationSound('warning', '⚠️ CẢNH BÁO NICK Bá»Š LAG', `Nick "${pageName}" bị lag bình luận, đã xếp vào hàng đợi.`);
+                actionText = `⚠️ Bị Lag (Sẽ thử lại): "${pageName}"`;
+                playNotificationSound('warning', '⚠️ CẢNH BÁO NICK BỊ LAG', `Nick "${pageName}" bị lag bình luận, đã xếp vào hàng đợi.`);
             } else if (isSuccess) {
                 actionText = `✅ Ghim thành công: "${pageName}" [${timeStr}]`;
                 playNotificationSound('success', '✅ GHIM THÀNH CÔNG', `Nick "${pageName}" đã được ghim bình luận thành công!`);
@@ -320,7 +320,7 @@ function processNextStep() {
             if (tabId) {
                 try {
                     chrome.tabs.remove(tabId);
-                    addLog("”’ Đã tự động đóng tab vừa hoàn thành!");
+                    addLog("🚪 Đã tự động đóng tab vừa hoàn thành!");
                 } catch(e) {}
             }
             return;
@@ -420,11 +420,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             if (state.targetConfigs.length === 1) {
                 addLog(`⚠️ Nick "${pageName}" bị lag bình luận! Chế độ 1 Nick: Nghỉ 30s rồi tự động lặp lại từ chỗ Reels...`);
-                addHistoryRecord(pageName, "⚠️ Bá»‹ Lag (Nghỉ 30s lặp lại)", "Do Facebook lag bình luận");
+                addHistoryRecord(pageName, "⚠️ Bị Lag (Nghỉ 30s lặp lại)", "Do Facebook lag bình luận");
                 chrome.alarms.create("singleAccountRepeat", { delayInMinutes: 30 / 60 });
             } else {
                 addLog(`⚠️ Nick "${pageName}" bị lag bình luận (Spinner)! Đã chuyển ngay sang Nick tiếp theo, xếp "${pageName}" vào hàng chờ thử lại sau.`);
-                addHistoryRecord(pageName, "⚠️ Bá»‹ Lag (Cuá»‘i phiên thử lại)", "Do Spinner xoay mòng mòng");
+                addHistoryRecord(pageName, "⚠️ Bị Lag (Cuối phiên thử lại)", "Do Spinner xoay mòng mòng");
                 
                 // Lưu vào danh sách chờ thử lại & chuyển sang Nick tiếp theo
                 chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (st) => {
@@ -482,18 +482,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 if (state.targetConfigs.length === 1) {
                     if (strat === 'ONCE') {
-                        addLog(`🎉 HOÀN TẤT CHẠY 1 LẦN CHO "${pName}" VÀ TỰ Đá»˜NG DỪNG LẠI!`);
+                        addLog(`🎉 HOÀN TẤT CHẠY 1 LẦN CHO "${pName}" VÀ TỰ ĐỘNG DỪNG LẠI!`);
                         printSessionReport('🛑 Đã hoàn thành chạy 1 lần và tự động dừng.');
                         chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
                         chrome.alarms.clearAll(() => {
                             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
                         });
                     } else if (strat === 'CONTINUOUS') {
-                        addLog(`⏳ CHẾ Đá»˜ LIÃŠN TỤC: Nghỉ 30s rồi tự động lặp lại cho "${pName}"...`);
+                        addLog(`⏳ CHẾ ĐỘ LIÊN TỤC: Nghỉ 30s rồi tự động lặp lại cho "${pName}"...`);
                         printSessionReport('♾️ Nghỉ 30 giây rồi tự động lặp lại cho Nick này...');
                         chrome.alarms.create("singleAccountRepeat", { delayInMinutes: 30 / 60 });
                     } else if (strat === 'DELAY') {
-                        addLog(`⏳ CHẾ Đá»˜ CÁCH KHOẢNG: Nghỉ ${delayMins} phút rồi lặp lại cho "${pName}"...`);
+                        addLog(`⏳ CHẾ ĐỘ CÁCH KHOẢNG: Nghỉ ${delayMins} phút rồi lặp lại cho "${pName}"...`);
                         printSessionReport(`⏳ Nghỉ ${delayMins} phút rồi tự động lặp lại cho Nick này...`);
                         chrome.alarms.create("singleAccountRepeat", { delayInMinutes: delayMins });
                     }
@@ -644,8 +644,8 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
         if (isScheduleMode && !isExactScheduledTime && !isForcedByScheduler) {
             const nextTarget = getNextScheduleTarget(st.scheduleTimes, st.scheduleDays, st.lastScheduleRun);
             const nextStr = nextTarget ? nextTarget.timeStr : 'khung giờ đã chọn';
-            addLog(`⏰ CHẾ Đá»˜ HẸN GIá»œ (GIá»œ VÀNG): Đã bật chế độ chờ! Bot chá»‰ chạy đúng các khung giờ đã cài.`);
-            addLog(`⏳ Hiá»‡n tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
+            addLog(`⏰ CHẾ ĐỘ HẸN GIỜ (GIỜ VÀNG): Đã bật chế độ chờ! Bot chỉ chạy đúng các khung giờ đã cài.`);
+            addLog(`⏳ Hiện tại (${currentTime}) chưa đúng giờ Vàng. Đang chờ khung giờ tiếp theo (${nextStr})...`);
 
             chrome.storage.local.set({
                 isBotRunning: true,
@@ -665,11 +665,11 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
         // Xáo trộn ngẫu nhiên thứ tự các Page (Đảm bảo mỗi Page chạy đúng 1 lần / vòng)
         const randomizedConfigs = rawConfigs.length > 1 ? smartSortConfigs(rawConfigs, st.sessionHistory || []) : rawConfigs;
 
-        console.log(`🚀 Bắt đầu chuá»—i tự động cho ${randomizedConfigs.length} Page...`);
+        console.log(`🚀 Bắt đầu chuỗi tự động cho ${randomizedConfigs.length} Page...`);
         startNewSession(randomizedConfigs);
 
         const orderNames = randomizedConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
-        addLog(`🎲 CHẾ Đá»˜ THỨ TỰ NGẪU NHIÃŠN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Má»—i Page chạy đúng 1 lần/vòng).`);
+        addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
         addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
 
         chrome.tabs.create({
@@ -724,7 +724,7 @@ function checkAndTriggerGoldenHour() {
 // Chạy kiểm tra Giờ Vàng liên tục mỗi 2 giây trong Background
 setInterval(checkAndTriggerGoldenHour, 2000);
 
-// Đá»“ng thời giữ Alarm mỗi phút để backup nếu Service Worker ngủ
+// Đồng thời giữ Alarm mỗi phút để backup nếu Service Worker ngủ
 chrome.alarms.create("autoScheduler", { periodInMinutes: 1 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -768,7 +768,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                         const delayMins = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
 
                         if (strat === 'ONCE') {
-                            addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ Đá»˜NG DỪNG LẠI!`);
+                            addLog(`🎉 ĐÃ HOÀN TẤT CHẠY TOÀN BỘ PHIÊN CHO ${origConfigs.length} PAGE VÀ TỰ ĐỘNG DỪNG LẠI!`);
                             printSessionReport('🛑 Đã hoàn thành phiên chạy 1 lần và tự động dừng.');
                             chrome.storage.local.set({ isBotRunning: false, step: "STOPPED" });
                             chrome.alarms.clearAll(() => {
@@ -785,7 +785,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                         } else if (strat === 'SCHEDULE') {
                             const nextTarget = getNextScheduleTarget(origSt.scheduleTimes, origSt.scheduleDays, origSt.lastScheduleRun);
                             const nextStr = nextTarget ? nextTarget.timeStr : '--:--';
-                            addLog(`🎉 HOÀN THÀNH PHIÊN CHẠY GIá»œ VÀNG CHO ${origConfigs.length} PAGE! Bot tự động quay lại chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
+                            addLog(`🎉 HOÀN THÀNH PHIÊN CHẠY GIỜ VÀNG CHO ${origConfigs.length} PAGE! Bot tự động quay lại chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
                             printSessionReport(`⏰ Đã hoàn thành phiên Giờ Vàng! Tự động quay về chế độ chờ cho khung giờ tiếp theo (${nextStr})...`);
                             chrome.storage.local.set({ isBotRunning: true, isScheduleWaiting: true, step: "SCHEDULE_WAITING" });
                         }
@@ -866,7 +866,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
                             // Báo cáo phiên
                             if (sessions.length === 0) {
-                                reply += '📊 Chưa có dữ liá»‡u phiên chạy!';
+                                reply += '📊 Chưa có dữ liệu phiên chạy!';
                             } else {
                                 const s = sessions[0];
                                 let ok = 0, fail = 0, timeout = 0;
@@ -878,7 +878,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                                 reply += `📊 PHIÊN GẦN NHẤT (${s.startTime}):\n`
                                     + `✅ Ghim thành công: ${ok} nick\n`
                                     + `⏰ Timeout 5ph: ${timeout} nick\n`
-                                    + `⚠️ Lá»—i/Lag: ${fail} nick\n`
+                                    + `⚠️ Lỗi/Lag: ${fail} nick\n`
                                     + `📌 Tổng đã xử lý: ${(s.items||[]).length}/${s.totalPages || '?'} nick\n`
                                     + `\n(Gõ /check bất cứ lúc nào để cập nhật sếp!)`;
                             }
@@ -915,8 +915,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                 body: JSON.stringify({ chat_id: chatId, text: msg })
             }).catch(() => {});
 
-            // Ghi nhận lá»‹ch sử
-            addHistoryRecord(pageName, '⚠️ Bá»‹ Timeout (Watchdog 5phút)', 'Chạy quá 5 phút không xong');
+            // Ghi nhận lịch sử
+            addHistoryRecord(pageName, '⚠️ Bị Timeout (Watchdog 5phút)', 'Chạy quá 5 phút không xong');
 
             if (st.targetConfigs.length === 1) {
                 addLog(`⏰ Chế độ 1 Nick: Nghỉ 30s rồi lặp lại...`);
@@ -1004,7 +1004,7 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
 });
 
 // ==========================================
-// TELEGRAM BOT POLLING (NHẬN Lá»†NH TỪ ĐIá»†N THOẠI)
+// TELEGRAM BOT POLLING (NHẬN LỆNH TỪ ĐIỆN THOẠI)
 // ==========================================
 setInterval(() => {
     chrome.storage.local.get(['teleBotToken', 'teleLastUpdateId', 'sessionHistory'], (res) => {
@@ -1020,11 +1020,11 @@ setInterval(() => {
                         nextOffset = update.update_id + 1;
                         if (update.message && update.message.text) {
                             const text = update.message.text.toLowerCase();
-                            // Nhận diá»‡n lá»‡nh "hon hac thao" và các lá»‡nh kiểm tra khác
+                            // Nhận diện lệnh "hon hac thao" và các lệnh kiểm tra khác
                             if (text.includes('hon hac thao') || text.includes('/check') || text.includes('báo cáo') || text.includes('bao cao') || text.includes('hỏi hệ thống') || text.includes('kiểm tra')) {
                                 
                                 const sessions = res.sessionHistory || [];
-                                let replyText = "âŒ Há»‡ thống chưa chạy phiên nào hoặc chưa có dữ liá»‡u báo cáo gần nhất!";
+                                let replyText = "âŒ Hệ thống chưa chạy phiên nào hoặc chưa có dữ liệu báo cáo gần nhất!";
                                 
                                 if (sessions.length > 0) {
                                     const currentSess = sessions[0];
@@ -1034,12 +1034,12 @@ setInterval(() => {
                                         if (item.status.includes('✅') || item.status.includes('ℹ️')) successCount++;
                                         else failCount++;
                                     });
-                                    replyText = `¤– BÁO CÁO NHANH TỪ AUTO BOT:\n`;
+                                    replyText = `🤖 BÁO CÁO NHANH TỪ AUTO BOT:\n`;
                                     replyText += `Phiên chạy lúc: ${currentSess.startTime}\n`;
                                     replyText += `Tổng số nick đã quét: ${currentSess.items.length}\n`;
                                     replyText += `✅ Thành công: ${successCount} nick\n`;
-                                    replyText += `⚠️ Lá»—i/Lag: ${failCount} nick\n\n`;
-                                    replyText += `(Đá»ƒ xem chi tiết, hãy chờ hệ thống chạy xong vòng hiện tại nhé sếp!)`;
+                                    replyText += `⚠️ Lỗi/Lag: ${failCount} nick\n\n`;
+            replyText += `(Để xem chi tiết, hãy chờ hệ thống chạy xong vòng hiện tại nhé sếp!)`;
                                 }
 
                                 fetch(`https://api.telegram.org/bot${res.teleBotToken}/sendMessage`, {
