@@ -779,6 +779,7 @@ async function runChecking(pageConfigs, targetPageName) {
         // 0. ĐỌC TÊN NICK CHUẨN XÁC VÙNG HEADER
         let currentPageName = getFacebookProfileNameStrict();
 
+        setupBlockDetector(targetPageName);
         logMsg(`📌 Profile nhận diện: "${currentPageName}" | Mục tiêu: "${targetPageName}"`);
 
         if (currentPageName && isNameMatch(currentPageName, targetPageName)) {

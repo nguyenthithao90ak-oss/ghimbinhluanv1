@@ -444,6 +444,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
             }
         }
+        else if (request.action === "accountRestrictedAlert") {
+            const currentCfg = state.targetConfigs[state.currentConfigIndex];
+            const pName = request.pageName || currentCfg?.pageName || "Nick";
+            chrome.alarms.clear('nickSessionTimeout');
+
+            addLog(`🚨 [KHẨN CẤP] Nick "${pName}" BỊ HẠN CHẾ TÍNH NĂNG / CHECKPOINT! Đã bắn cảnh báo đỏ về Telegram!`);
+            addHistoryRecord(pName, "🚨 Bị Hạn Chế / Block", request.reason || "Facebook chặn tính năng bình luận/ghim");
+
+            const cooldownSecs = Math.floor(Math.random() * 7) + 4;
+            addLog(`📌 Tự động bỏ qua nick bị lỗi. Nghỉ ${cooldownSecs}s trước khi chuyển sang Nick tiếp theo...`);
+            chrome.alarms.create("nextPageCooldown", { delayInMinutes: cooldownSecs / 60 });
+        }
         else if (request.action === "pageCompleted" || request.action === "switchFailed") {
             const currentCfg = state.targetConfigs[state.currentConfigIndex];
             const pName = currentCfg?.pageName || "Nick";
