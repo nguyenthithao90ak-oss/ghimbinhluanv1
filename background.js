@@ -21,12 +21,17 @@ if (typeof chrome !== 'undefined' && chrome.proxy) {
 
 chrome.webRequest.onAuthRequired.addListener(
     (details, callbackFn) => {
-        if (details.isProxy && HTTP_PROXIES.length > 0) {
-            const currentProxy = HTTP_PROXIES.find(p => p.host === details.challenger?.host) || HTTP_PROXIES[0];
-            if (currentProxy && currentProxy.user) {
-                callbackFn({ authCredentials: { username: currentProxy.user, password: currentProxy.pass || "" } });
-                return;
-            }
+        if (details.isProxy) {
+            chrome.storage.local.get(['proxyUser', 'proxyPass'], (st) => {
+                const user = st.proxyUser || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].user : '');
+                const pass = st.proxyPass || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].pass : '');
+                if (user) {
+                    callbackFn({ authCredentials: { username: user, password: pass || "" } });
+                    return;
+                }
+                callbackFn({});
+            });
+            return;
         }
         callbackFn({});
     },
@@ -39,31 +44,38 @@ applyProxyFromStorage();
 function applyProxyFromStorage() {
     if (typeof chrome === 'undefined' || !chrome.proxy) return;
 
-    if (HTTP_PROXIES.length === 0) {
-        chrome.proxy.settings.clear({ scope: "regular" }, () => {
-            chrome.storage.local.set({ activeProxy: "Mạng gốc (Wi-Fi)" });
-        });
-        return;
-    }
+    chrome.storage.local.get(['proxyEnable', 'proxyScheme', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
+        const isEnabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
+        const scheme = st.proxyScheme || 'http';
+        const host = st.proxyHost || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].host : '');
+        const port = st.proxyPort || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].port : 0);
 
-    try {
-        const proxy = HTTP_PROXIES[currentProxyIndex];
-        currentProxyIndex = (currentProxyIndex + 1) % HTTP_PROXIES.length;
-        const proxySettings = {
-            mode: "fixed_servers",
-            rules: {
-                singleProxy: { scheme: "http", host: proxy.host, port: parseInt(proxy.port) },
-                bypassList: ["localhost", "127.0.0.1", "api.telegram.org"]
-            }
-        };
-        chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
-            chrome.storage.local.set({ activeProxy: `HTTP ${proxy.host}:${proxy.port}` });
-            console.log(`✅ Đã BẬT Proxy HTTP: ${proxy.host}:${proxy.port}`);
-            addLog(`🌐 Đã BẬT Proxy HTTP: ${proxy.host}:${proxy.port}`);
-        });
-    } catch (e) {
-        console.error("Lỗi Proxy:", e);
-    }
+        if (!isEnabled || !host || !port) {
+            chrome.proxy.settings.clear({ scope: "regular" }, () => {
+                chrome.storage.local.set({ activeProxy: "Mạng gốc (Wi-Fi)" });
+                console.log("🛑 Đang sử dụng mạng gốc (Không dùng Proxy).");
+            });
+            return;
+        }
+
+        try {
+            const proxySettings = {
+                mode: "fixed_servers",
+                rules: {
+                    singleProxy: { scheme: scheme, host: host, port: parseInt(port) },
+                    bypassList: ["localhost", "127.0.0.1", "api.telegram.org"]
+                }
+            };
+            chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
+                const proxyStr = `${scheme.toUpperCase()} ${host}:${port}`;
+                chrome.storage.local.set({ activeProxy: proxyStr });
+                console.log(`✅ Đã BẬT Proxy: ${proxyStr}`);
+                addLog(`🌐 Đã BẬT Proxy: ${proxyStr}`);
+            });
+        } catch (e) {
+            console.error("Lỗi cấu hình Proxy:", e);
+        }
+    });
 }
 
 // ĐĂNG KÝ ALARM TELEGRAM POLL (thay setInterval để không bị Chrome sleep)
@@ -345,6 +357,10 @@ function processNextStep() {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "reloadProxy") {
+            applyProxyFromStorage();
+            return;
+        }
     if(request.action === 'updateProxySettings') { return; }
 
     if (request.action === "ping") {
