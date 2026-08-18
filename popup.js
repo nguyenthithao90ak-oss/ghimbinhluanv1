@@ -844,6 +844,7 @@ function loadDeviceProfileUI() {
 
         const mapNames = {
             'samsung_s24': 'Samsung S24 Ultra',
+            'iphone_14_pro_max': 'iPhone 14 Pro Max',
             'iphone_15': 'iPhone 15 Pro Max',
             'xiaomi_14': 'Xiaomi 14 Pro',
             'pixel_8': 'Pixel 8 Pro'

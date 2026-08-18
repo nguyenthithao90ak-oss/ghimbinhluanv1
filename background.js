@@ -10,16 +10,40 @@ const DEVICE_DATABASE = {
         model: 'SM-S928B',
         version: '14.0.0',
         secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
-        jsPlatform: 'Linux armv8l'
+        jsPlatform: 'Linux armv8l',
+        screenWidth: 412,
+        screenHeight: 915,
+        dpr: 3.5,
+        gpuVendor: 'Qualcomm',
+        gpuRenderer: 'Adreno (TM) 750'
     },
-    'iphone_15': {
-        name: 'iPhone 15 Pro Max',
+    'iphone_14_pro_max': {
+        name: 'iPhone 14 Pro Max',
         ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
         platform: 'iOS',
         model: 'iPhone15,3',
         version: '17.5.1',
         secChUa: '"Not/A)Brand";v="8", "Chromium";v="128", "Safari";v="17"',
-        jsPlatform: 'iPhone'
+        jsPlatform: 'iPhone',
+        screenWidth: 430,
+        screenHeight: 932,
+        dpr: 3.0,
+        gpuVendor: 'Apple Inc.',
+        gpuRenderer: 'Apple A16 GPU'
+    },
+    'iphone_15': {
+        name: 'iPhone 15 Pro Max',
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        platform: 'iOS',
+        model: 'iPhone16,2',
+        version: '17.5.1',
+        secChUa: '"Not/A)Brand";v="8", "Chromium";v="128", "Safari";v="17"',
+        jsPlatform: 'iPhone',
+        screenWidth: 430,
+        screenHeight: 932,
+        dpr: 3.0,
+        gpuVendor: 'Apple Inc.',
+        gpuRenderer: 'Apple A17 GPU'
     },
     'xiaomi_14': {
         name: 'Xiaomi 14 Pro',
@@ -28,16 +52,12 @@ const DEVICE_DATABASE = {
         model: '23116PN5BC',
         version: '14.0.0',
         secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
-        jsPlatform: 'Linux aarch64'
-    },
-    'pixel_8': {
-        name: 'Google Pixel 8 Pro',
-        ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
-        platform: 'Android',
-        model: 'Pixel 8 Pro',
-        version: '14.0.0',
-        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
-        jsPlatform: 'Linux armv8l'
+        jsPlatform: 'Linux aarch64',
+        screenWidth: 412,
+        screenHeight: 915,
+        dpr: 3.5,
+        gpuVendor: 'Qualcomm',
+        gpuRenderer: 'Adreno (TM) 750'
     }
 };
 
