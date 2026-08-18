@@ -1,3 +1,45 @@
+
+// --------------------------------------------------------------------------------------
+// 📱 GIẢ LẬP THIẾT BỊ DI ĐỘNG TOÀN DIỆN (ANDROID MOBILE EMULATION)
+// --------------------------------------------------------------------------------------
+(function emulateMobileDevice() {
+    try {
+        const mobileUA = "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36";
+        
+        // Ghi đè navigator.userAgent & platform
+        try { Object.defineProperty(navigator, 'userAgent', { get: () => mobileUA, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'appVersion', { get: () => "5.0 (Linux; Android 14; SM-S928B)", configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'platform', { get: () => "Linux armv8l", configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true }); } catch (e) {}
+
+        // Ghi đè navigator.userAgentData (Client Hints trong Javascript)
+        if (navigator.userAgentData) {
+            try {
+                Object.defineProperty(navigator, 'userAgentData', {
+                    get: () => ({
+                        brands: [
+                            { brand: "Chromium", version: "128" },
+                            { brand: "Google Chrome", version: "128" },
+                            { brand: "Not;A=Brand", version: "24" }
+                        ],
+                        mobile: true,
+                        platform: "Android",
+                        getHighEntropyValues: async () => ({
+                            architecture: "arm64",
+                            bitness: "64",
+                            model: "SM-S928B",
+                            platform: "Android",
+                            platformVersion: "14.0.0",
+                            uaFullVersion: "128.0.6613.88"
+                        })
+                    }),
+                    configurable: true
+                });
+            } catch (e) {}
+        }
+    } catch (err) {}
+})();
+
 // removed duplicate var (minSec, maxSec = minSec) => {
 // =============================================
 // CORE UTILITIES

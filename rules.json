@@ -8,13 +8,52 @@
         {
           "header": "User-Agent",
           "operation": "set",
-          "value": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Mobile/15E148 Safari/604.1"
+          "value": "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36"
+        },
+        {
+          "header": "sec-ch-ua-mobile",
+          "operation": "set",
+          "value": "?1"
+        },
+        {
+          "header": "sec-ch-ua-platform",
+          "operation": "set",
+          "value": "\"Android\""
+        },
+        {
+          "header": "sec-ch-ua-platform-version",
+          "operation": "set",
+          "value": "\"14.0.0\""
+        },
+        {
+          "header": "sec-ch-ua-model",
+          "operation": "set",
+          "value": "\"SM-S928B\""
+        },
+        {
+          "header": "sec-ch-ua",
+          "operation": "set",
+          "value": "\"Chromium\";v=\"128\", \"Google Chrome\";v=\"128\", \"Not;A=Brand\";v=\"24\""
         }
       ]
     },
     "condition": {
-      "urlFilter": "*://*.facebook.com/*",
-      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "script", "stylesheet", "image"]
+      "urlFilter": "||facebook.com",
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "stylesheet",
+        "script",
+        "image",
+        "font",
+        "object",
+        "xmlhttprequest",
+        "ping",
+        "csp_report",
+        "media",
+        "websocket",
+        "other"
+      ]
     }
   }
 ]
