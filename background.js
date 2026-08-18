@@ -1,3 +1,90 @@
+
+// --------------------------------------------------------------------------------------
+// 📱 THIẾT BỊ CỐ ĐỊNH CHO TỪNG PROFILE (MULTI-PROFILE HARDWARE FINGERPRINT)
+// --------------------------------------------------------------------------------------
+const DEVICE_DATABASE = {
+    'samsung_s24': {
+        name: 'Samsung Galaxy S24 Ultra',
+        ua: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        platform: 'Android',
+        model: 'SM-S928B',
+        version: '14.0.0',
+        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
+        jsPlatform: 'Linux armv8l'
+    },
+    'iphone_15': {
+        name: 'iPhone 15 Pro Max',
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        platform: 'iOS',
+        model: 'iPhone15,3',
+        version: '17.5.1',
+        secChUa: '"Not/A)Brand";v="8", "Chromium";v="128", "Safari";v="17"',
+        jsPlatform: 'iPhone'
+    },
+    'xiaomi_14': {
+        name: 'Xiaomi 14 Pro',
+        ua: 'Mozilla/5.0 (Linux; Android 14; 23116PN5BC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        platform: 'Android',
+        model: '23116PN5BC',
+        version: '14.0.0',
+        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
+        jsPlatform: 'Linux aarch64'
+    },
+    'pixel_8': {
+        name: 'Google Pixel 8 Pro',
+        ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        platform: 'Android',
+        model: 'Pixel 8 Pro',
+        version: '14.0.0',
+        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
+        jsPlatform: 'Linux armv8l'
+    }
+};
+
+function applyDeviceEmulationFromStorage() {
+    if (typeof chrome === 'undefined' || !chrome.declarativeNetRequest) return;
+    chrome.storage.local.get(['deviceProfileKey'], (res) => {
+        const key = res.deviceProfileKey || 'samsung_s24';
+        const dev = DEVICE_DATABASE[key] || DEVICE_DATABASE['samsung_s24'];
+        
+        try {
+            chrome.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: [1, 2],
+                addRules: [
+                    {
+                        id: 1,
+                        priority: 1,
+                        action: {
+                            type: 'modifyHeaders',
+                            requestHeaders: [
+                                { header: 'User-Agent', operation: 'set', value: dev.ua },
+                                { header: 'sec-ch-ua-mobile', operation: 'set', value: '?1' },
+                                { header: 'sec-ch-ua-platform', operation: 'set', value: `"${dev.platform}"` },
+                                { header: 'sec-ch-ua-model', operation: 'set', value: `"${dev.model}"` },
+                                { header: 'sec-ch-ua-platform-version', operation: 'set', value: `"${dev.version}"` },
+                                { header: 'sec-ch-ua', operation: 'set', value: dev.secChUa }
+                            ]
+                        },
+                        condition: {
+                            urlFilter: '||facebook.com',
+                            resourceTypes: [
+                                'main_frame', 'sub_frame', 'stylesheet', 'script', 'image',
+                                'font', 'object', 'xmlhttprequest', 'ping', 'csp_report',
+                                'media', 'websocket', 'other'
+                            ]
+                        }
+                    }
+                ]
+            }, () => {
+                console.log(`📱 [DEVICE ENGINE] Đã kích hoạt cố định thiết bị: ${dev.name}`);
+            });
+        } catch (e) {
+            console.error('Lỗi nạp thiết bị:', e);
+        }
+    });
+}
+applyDeviceEmulationFromStorage();
+
 // ======================================================================================
 // CẤU HÌNH PROXY HTTP (SẴN SÀNG THÊM DANH SÁCH PROXY HTTP TẠI ĐÂY)
 // Định dạng: { host: "ip", port: 1234, user: "user", pass: "pass" }
@@ -373,6 +460,10 @@ function processNextStep() {
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "applyDeviceEmulation") {
+            applyDeviceEmulationFromStorage();
+            return;
+        }
         if (request.action === "reloadProxy") {
             applyProxyFromStorage();
             return;

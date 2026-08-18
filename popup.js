@@ -826,3 +826,33 @@ function updateProxyDisplay() {
 }
 setInterval(updateProxyDisplay, 1000);
 updateProxyDisplay();
+loadDeviceProfileUI();
+
+
+// XỬ LÝ LỰA CHỌN THIẾT BỊ CỐ ĐỊNH CHO PROFILE
+function loadDeviceProfileUI() {
+    chrome.storage.local.get(['deviceProfileKey'], (res) => {
+        const key = res.deviceProfileKey || 'samsung_s24';
+        const select = document.getElementById('selectDeviceProfile');
+        const label = document.getElementById('deviceActiveLabel');
+        if (select) select.value = key;
+        if (label) {
+            const mapNames = {
+                'samsung_s24': '🟢 Cố định: Samsung Galaxy S24 Ultra (Android)',
+                'iphone_15': '🟢 Cố định: iPhone 15 Pro Max (iOS)',
+                'xiaomi_14': '🟢 Cố định: Xiaomi 14 Pro (Android)',
+                'pixel_8': '🟢 Cố định: Google Pixel 8 Pro (Android)'
+            };
+            label.innerText = mapNames[key] || mapNames['samsung_s24'];
+        }
+    });
+}
+
+document.getElementById('btnSaveDeviceProfile')?.addEventListener('click', () => {
+    const val = document.getElementById('selectDeviceProfile').value;
+    chrome.storage.local.set({ deviceProfileKey: val }, () => {
+        chrome.runtime.sendMessage({ action: 'applyDeviceEmulation', deviceKey: val });
+        loadDeviceProfileUI();
+        alert('✅ Đã lưu thiết bị cố định cho Profile này thành công!');
+    });
+});
