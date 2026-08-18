@@ -40,6 +40,24 @@
 
     <!-- TAB 1: CHẠY AUTO & LOG GIÁM SÁT -->
     <div id="sectionRun">
+
+        <!-- PROMINENT DEVICE SELECTOR & BADGE -->
+        <div class="card" style="margin-bottom: 10px; background: #f0f7ff; border: 1.5px solid #1877f2; padding: 10px; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <span style="font-size: 11px; font-weight: bold; color: #1877f2;">📱 GIẢ LẬP ĐIỆN THOẠI CỐ ĐỊNH:</span>
+                <span id="deviceActiveLabel" style="font-size: 10px; background: #28a745; color: white; padding: 2px 6px; border-radius: 10px; font-weight: bold;">Đang nạp...</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+                <select id="selectDeviceProfile" style="flex: 1; padding: 5px; border: 1px solid #1877f2; border-radius: 4px; font-weight: bold; font-size: 11px; background: #fff; color: #111;">
+                    <option value="samsung_s24">📱 Máy 1: Samsung S24 Ultra (Android 14)</option>
+                    <option value="iphone_15">📱 Máy 2: iPhone 15 Pro Max (iOS 17.5)</option>
+                    <option value="xiaomi_14">📱 Máy 3: Xiaomi 14 Pro (Android 14)</option>
+                    <option value="pixel_8">📱 Máy 4: Pixel 8 Pro (Android 14)</option>
+                </select>
+                <button id="btnSaveDeviceProfile" style="padding: 5px 10px; background: #1877f2; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;">💾 LƯU</button>
+            </div>
+        </div>
+
         <div class="card">
             <div class="group">
                 <label>Chọn Chế Độ Chạy:</label>
@@ -111,6 +129,24 @@
 
     <!-- TAB 2: CẤU HÌNH PAGE -->
     <div id="sectionConfig" style="display: none;">
+
+        <!-- PROMINENT DEVICE SELECTOR & BADGE -->
+        <div class="card" style="margin-bottom: 10px; background: #f0f7ff; border: 1.5px solid #1877f2; padding: 10px; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <span style="font-size: 11px; font-weight: bold; color: #1877f2;">📱 GIẢ LẬP ĐIỆN THOẠI CỐ ĐỊNH:</span>
+                <span id="deviceActiveLabel2" style="font-size: 10px; background: #28a745; color: white; padding: 2px 6px; border-radius: 10px; font-weight: bold;">Đang nạp...</span>
+            </div>
+            <div style="display: flex; gap: 6px;">
+                <select id="selectDeviceProfile2" style="flex: 1; padding: 5px; border: 1px solid #1877f2; border-radius: 4px; font-weight: bold; font-size: 11px; background: #fff; color: #111;">
+                    <option value="samsung_s24">📱 Máy 1: Samsung S24 Ultra (Android 14)</option>
+                    <option value="iphone_15">📱 Máy 2: iPhone 15 Pro Max (iOS 17.5)</option>
+                    <option value="xiaomi_14">📱 Máy 3: Xiaomi 14 Pro (Android 14)</option>
+                    <option value="pixel_8">📱 Máy 4: Pixel 8 Pro (Android 14)</option>
+                </select>
+                <button id="btnSaveDeviceProfile2" style="padding: 5px 10px; background: #1877f2; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;">💾 LƯU</button>
+            </div>
+        </div>
+
         <button id="btnLoadPresetsPopup" style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.15);">⚡ NẠP LẠI 15 PAGE MẪU (1-CLICK PRESET)</button>
         <div class="card">
             <h4 style="margin: 0 0 8px 0; color: #1877f2;">➕ Thêm / Sửa Mẫu Page</h4>

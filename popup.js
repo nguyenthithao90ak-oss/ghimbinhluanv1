@@ -829,30 +829,43 @@ updateProxyDisplay();
 loadDeviceProfileUI();
 
 
+
 // XỬ LÝ LỰA CHỌN THIẾT BỊ CỐ ĐỊNH CHO PROFILE
 function loadDeviceProfileUI() {
     chrome.storage.local.get(['deviceProfileKey'], (res) => {
         const key = res.deviceProfileKey || 'samsung_s24';
-        const select = document.getElementById('selectDeviceProfile');
-        const label = document.getElementById('deviceActiveLabel');
-        if (select) select.value = key;
-        if (label) {
-            const mapNames = {
-                'samsung_s24': '🟢 Cố định: Samsung Galaxy S24 Ultra (Android)',
-                'iphone_15': '🟢 Cố định: iPhone 15 Pro Max (iOS)',
-                'xiaomi_14': '🟢 Cố định: Xiaomi 14 Pro (Android)',
-                'pixel_8': '🟢 Cố định: Google Pixel 8 Pro (Android)'
-            };
-            label.innerText = mapNames[key] || mapNames['samsung_s24'];
-        }
+        const s1 = document.getElementById('selectDeviceProfile');
+        const s2 = document.getElementById('selectDeviceProfile2');
+        const l1 = document.getElementById('deviceActiveLabel');
+        const l2 = document.getElementById('deviceActiveLabel2');
+
+        if (s1) s1.value = key;
+        if (s2) s2.value = key;
+
+        const mapNames = {
+            'samsung_s24': 'Samsung S24 Ultra',
+            'iphone_15': 'iPhone 15 Pro Max',
+            'xiaomi_14': 'Xiaomi 14 Pro',
+            'pixel_8': 'Pixel 8 Pro'
+        };
+        const text = mapNames[key] || 'Samsung S24 Ultra';
+        if (l1) l1.innerText = text;
+        if (l2) l2.innerText = text;
+    });
+}
+
+function saveDeviceChoice(val) {
+    chrome.storage.local.set({ deviceProfileKey: val }, () => {
+        chrome.runtime.sendMessage({ action: 'applyDeviceEmulation', deviceKey: val });
+        loadDeviceProfileUI();
+        alert('✅ ĐÃ LƯU THÀNH CÔNG: Profile này từ nay cố định là ' + val.toUpperCase() + '!');
     });
 }
 
 document.getElementById('btnSaveDeviceProfile')?.addEventListener('click', () => {
-    const val = document.getElementById('selectDeviceProfile').value;
-    chrome.storage.local.set({ deviceProfileKey: val }, () => {
-        chrome.runtime.sendMessage({ action: 'applyDeviceEmulation', deviceKey: val });
-        loadDeviceProfileUI();
-        alert('✅ Đã lưu thiết bị cố định cho Profile này thành công!');
-    });
+    saveDeviceChoice(document.getElementById('selectDeviceProfile').value);
 });
+document.getElementById('btnSaveDeviceProfile2')?.addEventListener('click', () => {
+    saveDeviceChoice(document.getElementById('selectDeviceProfile2').value);
+});
+
