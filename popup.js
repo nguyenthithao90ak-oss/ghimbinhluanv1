@@ -869,3 +869,40 @@ document.getElementById('btnSaveDeviceProfile2')?.addEventListener('click', () =
     saveDeviceChoice(document.getElementById('selectDeviceProfile2').value);
 });
 
+
+
+// NÚT TEST KIỂM TRA IP PROXY THỰC TẾ
+document.getElementById('btnTestProxy')?.addEventListener('click', async () => {
+    const statusBox = document.getElementById('activeProxyStatus');
+    if (statusBox) {
+        statusBox.innerText = '⏳ Đang kiểm tra kết nối IP thực tế...';
+        statusBox.style.background = '#fff3cd';
+        statusBox.style.color = '#856404';
+        statusBox.style.borderColor = '#ffeeba';
+    }
+
+    try {
+        const res = await fetch('http://ip-api.com/json/?nocache=' + Date.now());
+        const data = await res.json();
+        if (data && data.query) {
+            const isProxy = data.query === '103.162.30.61' || data.org?.includes('BKNS') || data.city === 'Hanoi';
+            if (statusBox) {
+                statusBox.innerText = `🌐 IP Hiện Tại: ${data.query} (${data.city}, ${data.country})`;
+                statusBox.style.background = '#d4edda';
+                statusBox.style.color = '#155724';
+                statusBox.style.borderColor = '#c3e6cb';
+            }
+            alert(`✅ KẾT QUẢ KIỂM TRA IP:\n- Địa chỉ IP: ${data.query}\n- Nhà mạng/Vùng: ${data.isp || data.org} (${data.city})\n\n${isProxy ? '👉 ĐANG CHẠY QUA PROXY CHUẨN XÁC!' : '👉 Lưu ý: Đang nhận diện IP mạng gốc (Do Proxy hết hạn hoặc chưa kích hoạt).'}`);
+        } else {
+            throw new Error('Không nhận được dữ liệu IP');
+        }
+    } catch (e) {
+        if (statusBox) {
+            statusBox.innerText = '⚠️ Proxy không phản hồi (502 / Hết hạn)';
+            statusBox.style.background = '#f8d7da';
+            statusBox.style.color = '#721c24';
+            statusBox.style.borderColor = '#f5c6cb';
+        }
+        alert('⚠️ Không thể kết nối qua Proxy:\n- Mã lỗi: ' + e.message + '\n\n👉 Khuyên dùng: Kiểm tra lại gói Proxy xem có bị hết hạn hoặc thay IP mới nhé sếp!');
+    }
+});
