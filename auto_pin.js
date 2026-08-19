@@ -847,13 +847,21 @@ function getFacebookProfileNameStrict() {
 async function runChecking(pageConfigs, targetPageName) {
     try {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
-        await delay(1, 3);
+        await delay(1, 2);
         
-        // 0. ĐỌC TÊN NICK CHUẨN XÁC VÙNG HEADER
-        let currentPageName = getFacebookProfileNameStrict();
+        // 0. ĐỌC TÊN NICK CHUẨN XÁC (THỬ LẠI 3 LẦN ĐỢI TRANG LOAD XONG CHỮ)
+        let currentPageName = "";
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            currentPageName = getFacebookProfileNameStrict();
+            if (currentPageName && isNameMatch(currentPageName, targetPageName)) {
+                break;
+            }
+            logMsg(`🔎 [Lần ${attempt}/3] Đang đọc tên Nick trên màn hình (Hiện tại: "${currentPageName || 'Đang tải...'}")`);
+            await delay(1.5, 2.5);
+        }
 
         setupBlockDetector(targetPageName);
-        logMsg(`📌 Profile nhận diện: "${currentPageName}" | Mục tiêu: "${targetPageName}"`);
+        logMsg(`📌 Profile nhận diện cuối cùng: "${currentPageName}" | Mục tiêu: "${targetPageName}"`);
 
         if (currentPageName && isNameMatch(currentPageName, targetPageName)) {
             logMsg(`✅ ĐÚNG NICK "${targetPageName}"! Vào Reels luôn...`);
