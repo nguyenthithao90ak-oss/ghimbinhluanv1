@@ -72,7 +72,7 @@ const delay = (minSec, maxSec = minSec) => {
 function safeSendMessage(msgObj) {
     try {
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-            safeSendMessage(msgObj, () => {
+            chrome.runtime.sendMessage(msgObj, () => {
                 if (chrome.runtime.lastError) {
                     // Suppress chrome extension lastError silently
                 }

@@ -70,7 +70,7 @@ var delay = (minMs, maxMs = minMs) => {
 function safeSendMessage(msgObj) {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
         try {
-            safeSendMessage(msgObj, () => {
+            chrome.runtime.sendMessage(msgObj, () => {
                 if (chrome.runtime.lastError) {
                     // Suppress connection errors during page reloads
                 }
