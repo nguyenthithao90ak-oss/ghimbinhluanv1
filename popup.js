@@ -1,4 +1,20 @@
 
+function safeRuntimeSendMessage(msgObj, callback) {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        try {
+            safeRuntimeSendMessage(msgObj, (res) => {
+                if (chrome.runtime.lastError) {
+                    // Suppress connection errors
+                }
+                if (typeof callback === 'function') callback(res);
+            });
+        } catch(e) {
+            if (typeof callback === 'function') callback(null);
+        }
+    }
+}
+
+
 function sanitizeLogText(str) {
     if (!str) return '';
     return str
@@ -412,7 +428,7 @@ document.getElementById('btnSaveProxy').addEventListener('click', () => {
         proxyUser: username,
         proxyPass: password
     }, () => {
-        chrome.runtime.sendMessage({ action: "updateProxySettings" });
+        safeRuntimeSendMessage({ action: "updateProxySettings" });
         alert(enabled ? `✅ ĐÃ BẬT PROXY (${host}:${port})!` : '🛑 ĐÃ TẮT PROXY (DÙNG MẠNG GỐC WI-FI)!');
     });
 });
@@ -617,7 +633,7 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
         if (result.isBotRunning) {
             // STOP BOT
             chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" }, () => {
-                chrome.runtime.sendMessage({ action: "stopBotProcess" });
+                safeRuntimeSendMessage({ action: "stopBotProcess" });
                 chrome.storage.local.get(['botLogs'], (res) => {
                     let logs = res.botLogs || [];
                     logs.push(`[${new Date().toLocaleTimeString()}] 🛑 Đã gửi lệnh DỪNG BOT!`);
@@ -660,7 +676,7 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             scheduleDays: dayChecks,
             soundNotifyEnable: soundEnable
         }, () => {
-            chrome.runtime.sendMessage({
+            safeRuntimeSendMessage({
                 action: "startMultiAccountProcess",
                 targetConfigs: targetConfigs
             });
@@ -857,7 +873,7 @@ function loadDeviceProfileUI() {
 
 function saveDeviceChoice(val) {
     chrome.storage.local.set({ deviceProfileKey: val }, () => {
-        chrome.runtime.sendMessage({ action: 'applyDeviceEmulation', deviceKey: val });
+        safeRuntimeSendMessage({ action: 'applyDeviceEmulation', deviceKey: val });
         loadDeviceProfileUI();
         alert('✅ ĐÃ LƯU THÀNH CÔNG: Profile này từ nay cố định là ' + val.toUpperCase() + '!');
     });

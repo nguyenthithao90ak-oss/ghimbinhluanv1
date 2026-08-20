@@ -66,6 +66,19 @@ var delay = (minMs, maxMs = minMs) => {
     });
 };
 
+
+function safeSendMessage(msgObj) {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        try {
+            safeSendMessage(msgObj, () => {
+                if (chrome.runtime.lastError) {
+                    // Suppress connection errors during page reloads
+                }
+            });
+        } catch(e) {}
+    }
+}
+
 function logMsg(msg) {
     const time = new Date().toLocaleTimeString();
     const formatted = `[${time}] ${msg}`;
@@ -259,7 +272,7 @@ async function switchToAccount(targetPageName) {
             // Kiểm tra timeout
             if (isTimedOut()) {
                 logMsg(`⏰ QUÁ THỜI GIAN 60s khi tìm nút Switcher! Nick "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
-                chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+                safeSendMessage({ action: "accountLagged", pageName: targetPageName });
                 return;
             }
             await delay(1800, 2500);
@@ -270,7 +283,7 @@ async function switchToAccount(targetPageName) {
             simulateClick(switchBtn);
         } else {
             logMsg(`⏰ QUÁ THỜI GIAN hoặc không tìm thấy nút Switcher! Nick "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
-            chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+            safeSendMessage({ action: "accountLagged", pageName: targetPageName });
             return;
         }
 
@@ -280,7 +293,7 @@ async function switchToAccount(targetPageName) {
         // Kiểm tra timeout trước khi vào vòng scroll dài
         if (isTimedOut()) {
             logMsg(`⏰ QUÁ THỜI GIAN 60s trước khi quét danh sách nick! Nick "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
-            chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+            safeSendMessage({ action: "accountLagged", pageName: targetPageName });
             return;
         }
         
@@ -319,7 +332,7 @@ async function switchToAccount(targetPageName) {
             // Timeout giữa chừng khi scroll
             if (isTimedOut()) {
                 logMsg(`⏰ QUÁ THỜI GIAN 60s khi đang cuộn tìm Nick! "${targetPageName}" -> Xếp vào hàng đợi thử lại cuối vòng!`);
-                chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName });
+                safeSendMessage({ action: "accountLagged", pageName: targetPageName });
                 return;
             }
 
@@ -397,7 +410,7 @@ async function switchToAccount(targetPageName) {
 
             if (isAlreadyActive) {
                 logMsg(`✅ Nick "${targetPageName}" ĐÃ CÓ NÚT XANH (Đang active)! KHÔNG BẤM CHỌN LẠI -> Quay về Profile đăng & ghim luôn!`);
-                chrome.runtime.sendMessage({
+                safeSendMessage({
                     action: "alreadyTargetAccount",
                     pageName: targetPageName
                 });
@@ -417,7 +430,7 @@ async function switchToAccount(targetPageName) {
             await delay(4500);
             if (window.location.href.includes('/bookmarks/')) {
                  logMsg(`✅ Nick "${targetPageName}" CÓ THỂ ĐÃ ACTIVE TỪ TRƯỚC (Vì click xong trang không đổi)! Ép quay về Profile luôn để chống kẹt!`);
-                 chrome.runtime.sendMessage({
+                 safeSendMessage({
                      action: "alreadyTargetAccount",
                      pageName: targetPageName
                  });
@@ -425,7 +438,7 @@ async function switchToAccount(targetPageName) {
             }
         } else {
             logMsg(`❌ Không tìm thấy Nick "${targetPageName}" trong danh sách.`);
-            chrome.runtime.sendMessage({
+            safeSendMessage({
                 action: "switchFailed",
                 pageName: targetPageName
             });
@@ -438,7 +451,7 @@ async function switchToAccount(targetPageName) {
             logMsg(`❌ Lỗi Switcher: ${e.message}`);
         }
         // Dù lỗi gì cũng xếp nick này vào retry queue, không được bỏ qua vĩnh viễn
-        try { chrome.runtime.sendMessage({ action: "accountLagged", pageName: targetPageName }); } catch(ex) {}
+        try { safeSendMessage({ action: "accountLagged", pageName: targetPageName }); } catch(ex) {}
     }
 }
 

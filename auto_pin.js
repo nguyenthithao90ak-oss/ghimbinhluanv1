@@ -72,7 +72,7 @@ const delay = (minSec, maxSec = minSec) => {
 function safeSendMessage(msgObj) {
     try {
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-            chrome.runtime.sendMessage(msgObj, () => {
+            safeSendMessage(msgObj, () => {
                 if (chrome.runtime.lastError) {
                     // Suppress chrome extension lastError silently
                 }
@@ -867,7 +867,7 @@ async function runChecking(pageConfigs, targetPageName) {
             logMsg(`✅ ĐÚNG NICK "${targetPageName}"! Vào Reels luôn...`);
         } else {
             logMsg(`🔄 KHÁC NICK (Hiện tại: "${currentPageName}" ≠ Mục tiêu: "${targetPageName}"). Cần chuyển sang Nick "${targetPageName}"...`);
-            chrome.runtime.sendMessage({ action: "needAccountSwitch", targetPageName });
+            safeSendMessage({ action: "needAccountSwitch", targetPageName });
             return;
         }
 
@@ -878,7 +878,7 @@ async function runChecking(pageConfigs, targetPageName) {
             'Tab Reels', 3, 2
         );
         if (!reelsOk) {
-            chrome.runtime.sendMessage({ action: "pageCompleted" });
+            safeSendMessage({ action: "pageCompleted" });
             return;
         }
 
@@ -908,7 +908,7 @@ async function runChecking(pageConfigs, targetPageName) {
 
         if (reelLinks.length === 0) {
             logMsg("⚠️ Không thấy Reels nào.");
-            chrome.runtime.sendMessage({ action: "pageCompleted" });
+            safeSendMessage({ action: "pageCompleted" });
             return;
         }
 
