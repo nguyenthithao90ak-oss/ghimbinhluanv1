@@ -2,7 +2,7 @@
 function safeRuntimeSendMessage(msgObj, callback) {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
         try {
-            safeRuntimeSendMessage(msgObj, (res) => {
+            chrome.runtime.sendMessage(msgObj, (res) => {
                 if (chrome.runtime.lastError) {
                     // Suppress connection errors
                 }
