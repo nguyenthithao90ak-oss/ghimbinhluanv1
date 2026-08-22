@@ -200,6 +200,30 @@
             </div>
         </div>
 
+        
+        <!-- GOOGLE GEMINI AI CONFIGURATION -->
+        <div class="card" style="border: 1.5px solid #6200ea; background: #fbf7ff;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h4 style="margin: 0; color: #6200ea; font-size: 12px;">🧠 Cấu Hình Google Gemini AI Thật</h4>
+                <span id="geminiStatusLabel" style="font-size: 10px; background: #e0e0e0; color: #333; padding: 2px 6px; border-radius: 10px; font-weight: bold;">Chưa có Key</span>
+            </div>
+            <div class="group">
+                <label>Google Gemini API Key (Bắt đầu bằng AIzaSy...):</label>
+                <input type="password" id="geminiApiKeyInput" placeholder="Dán mã AIzaSy... vào đây" style="width:100%; padding:6px; border-radius:4px; border:1px solid #ccc; font-size: 11px;">
+            </div>
+            <div class="group" style="margin-top: 6px;">
+                <label>Mô hình AI (Model):</label>
+                <select id="geminiModelSelect" style="width:100%; padding:5px; border-radius:4px; border:1px solid #ccc; font-size: 11px;">
+                    <option value="gemini-2.0-flash">⚡ Google Gemini 2.0 Flash (Siêu nhanh & Mới nhất)</option>
+                    <option value="gemini-1.5-flash">🔥 Google Gemini 1.5 Flash (Ổn định)</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 8px;">
+                <button id="btnSaveGeminiKey" style="flex: 2; padding: 6px; background: #6200ea; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;">💾 LƯU KEY GEMINI AI</button>
+                <button id="btnTestGeminiKey" style="flex: 1; padding: 6px; background: #ff9800; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;">⚡ TEST AI</button>
+            </div>
+        </div>
+
         <!-- TELEGRAM CONFIG -->
         <div class="card">
             <h4 style="margin: 0 0 8px 0; color: #1877f2;">📱 Nhận Báo Cáo Qua Telegram</h4>

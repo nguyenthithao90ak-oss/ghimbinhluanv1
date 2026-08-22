@@ -1,10 +1,10 @@
 // --------------------------------------------------------------------------------------
-// 🧠 AI SUPERVISOR CORE ENGINE (HỆ THỐNG AI GIÁM SÁT TOÀN DIỆN & TỰ PHỤC HỒI)
+// 🧠 AI SUPERVISOR CORE ENGINE (HỆ THỐNG AI GIÁM SÁT & GOOGLE GEMINI REAL AI)
 // --------------------------------------------------------------------------------------
 
 class AISupervisorEngine {
     constructor() {
-        this.version = "2.0.0-AI";
+        this.version = "2.5.0-GEMINI-REAL-AI";
         this.healingCount = 0;
         this.lastAnomaly = null;
     }
@@ -41,7 +41,6 @@ class AISupervisorEngine {
         return false;
     }
 
-    // Phát hiện các hộp thoại, lớp phủ che mờ màn hình
     detectBlockers() {
         const results = [];
         const dialogs = Array.from(document.querySelectorAll('div[role="dialog"], div[aria-modal="true"], div[data-sigil="touchable dialog"], div.modal, div[id*="modal"], div[class*="dialog"]'));
@@ -50,8 +49,6 @@ class AISupervisorEngine {
             const r = d.getBoundingClientRect();
             if (r.width > 120 && r.height > 80 && r.top >= 0 && r.top < window.innerHeight) {
                 const text = (d.innerText || '').toLowerCase();
-                
-                // Bỏ qua nếu đây là khung bình luận hoặc danh sách account switcher
                 if (text.includes('viết bình luận') || text.includes('bình luận về') || text.includes('tài khoản của bạn') || text.includes('your pages')) {
                     continue;
                 }
@@ -69,25 +66,20 @@ class AISupervisorEngine {
         return results;
     }
 
-    // Tìm nút Đóng / Bỏ qua trong Popup
     findDismissButton(container) {
         if (!container) return null;
-
-        // 1. Tìm theo aria-label hoặc title (Đóng, Close, Bỏ qua, Dismiss)
         const ariaBtns = Array.from(container.querySelectorAll('button, div[role="button"], a, i, svg, span')).filter(el => {
             const a = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).toLowerCase();
             return a.includes('đóng') || a.includes('close') || a.includes('bỏ qua') || a.includes('dismiss') || a.includes('cancel') || a.includes('hủy') || a.includes('không phải bây giờ') || a.includes('not now');
         });
         if (ariaBtns.length > 0) return ariaBtns[0];
 
-        // 2. Tìm theo text bên trong
         const textBtns = Array.from(container.querySelectorAll('button, div[role="button"], a, span')).filter(el => {
             const t = (el.innerText || '').trim().toLowerCase();
             return t === 'đóng' || t === 'close' || t === 'không phải bây giờ' || t === 'bỏ qua' || t === 'để sau' || t === 'hủy' || t === 'not now' || t === 'dismiss' || t === '✕' || t === '×';
         });
         if (textBtns.length > 0) return textBtns[0];
 
-        // 3. Tìm icon dấu X ở góc trên bên phải của modal
         const closeIcons = Array.from(container.querySelectorAll('svg, i, span')).filter(el => {
             const r = el.getBoundingClientRect();
             const parentR = container.getBoundingClientRect();
@@ -98,62 +90,109 @@ class AISupervisorEngine {
         return null;
     }
 
-    // 2. AI TẠO BÌNH LUẬN BÁN HÀNG SÁNG TẠO (DYNAMIC AI COPYWRITER)
-    generateDynamicComment(category = "DOBO", targetPageName = "") {
+    // 2. GOOGLE GEMINI REAL AI GENERATION (GỌI TRÍ TUỆ NHÂN TẠO THẬT)
+    async generateWithGemini(promptText, apiKey, model = "gemini-2.0-flash") {
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+            const data = await res.json();
+            if (data && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                return data.candidates[0].content.parts[0].text.trim().replace(/[\r\n]+/g, ' ');
+            }
+        } catch (e) {
+            console.warn("Gemini API call failed:", e);
+        }
+        return null;
+    }
+
+    // 3. TẠO BÌNH LUẬN THÔNG MINH (KẾT HỢP GEMINI AI THẬT + DỰ PHÒNG NỘI BỘ)
+    async generateDynamicComment(category = "DOBO", targetPageName = "") {
         const DOMAIN = "https://muadogiare.web.app";
         
+        // Kiểm tra xem người dùng có nạp Gemini API Key không
+        let geminiKey = null;
+        let geminiModel = "gemini-2.0-flash";
+        
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                const st = await new Promise(r => chrome.storage.local.get(['geminiApiKey', 'geminiModel'], r));
+                if (st && st.geminiApiKey && st.geminiApiKey.startsWith('AIzaSy')) {
+                    geminiKey = st.geminiApiKey.trim();
+                    geminiModel = st.geminiModel || "gemini-2.0-flash";
+                }
+            }
+        } catch(e) {}
+
+        // NẾU CÓ KEY -> GỌI GOOGLE GEMINI AI THẬT 100%
+        if (geminiKey) {
+            const topicMap = {
+                'QUAN': 'quần ống rộng nữ thời trang giá xưởng hack dáng',
+                'DOBO': 'đồ bộ mặc nhà nữ lụa mềm mát cao cấp xả kho',
+                'SAURIENG': 'sầu riêng cơm vàng hạt lép thơm ngon ngọt tận vườn',
+                'DIENTHOAI': 'điện thoại chính hãng và gia dụng giá rẻ uy tín có bảo hành'
+            };
+            const topic = topicMap[category] || topicMap.DOBO;
+            const prompt = `Hãy viết đúng 1 câu bình luận bán hàng Facebook siêu ngắn gọn (khoảng 15-25 từ), giọng điệu người bán hàng thân thiện, tự nhiên, cuốn hút cho sản phẩm: ${topic}. Cuối câu bắt buộc gắn kèm link: ${DOMAIN}. Tuyệt đối không thêm dấu ngoặc kép hay lời giải thích nào khác.`;
+            
+            const aiText = await this.generateWithGemini(prompt, geminiKey, geminiModel);
+            if (aiText && aiText.includes('http')) {
+                this.log(`🧠 [GOOGLE GEMINI AI THẬT] Đã sinh câu bình luận độc quyền: "${aiText}"`);
+                return aiText;
+            }
+        }
+
+        // DỰ PHÒNG (BỘ TỪ ĐIỂN AI NỘI BỘ NẾU CHƯA CÓ KEY)
         const AI_DICTIONARY = {
             QUAN: {
-                openers: ["Chị em ơi", "Mấy chị ơi", "Cả nhà ơi", "Các nàng ơi", "Khách yêu ơi", "Mọi người ơi", "Các bác ơi"],
+                openers: ["Chị em ơi", "Mấy chị ơi", "Cả nhà ơi", "Các nàng ơi", "Khách yêu ơi", "Mọi người ơi"],
                 intents: [
                     "em xả kho quần ống rộng giá xưởng siêu đẹp nè",
                     "shop thanh lý lô quần ống rộng tôn dáng chuẩn đét ở đây",
                     "xả hàng quần chất lượng cao form siêu hack dáng tại đây",
                     "thanh lý xả kho sập sàn toàn mẫu quần hót nhất năm",
-                    "em gom đơn xả nhanh lô quần giá tận xưởng bao đẹp bao chất",
-                    "xả nốt lô quần đẹp chuẩn form cho các chị em diện xinh"
+                    "em gom đơn xả nhanh lô quần giá tận xưởng bao đẹp bao chất"
                 ],
                 calls: [
                     "chị em ấn vào chọn size chọn màu luôn nhen",
                     "các nàng bấm vào xem bảng mẫu và đặt liền tay nhé",
                     "mọi người ấn xem mẫu và đặt ngay kẻo hết size",
-                    "các chị nhanh tay nhấn vào đặt để em giữ size đẹp nha",
-                    "bấm vào xem ngay để săn giá ưu đãi tận xưởng nhé"
+                    "các chị nhanh tay nhấn vào đặt để em giữ size đẹp nha"
                 ]
             },
             DOBO: {
-                openers: ["Các chị ơi", "Chị em ơi", "Khách yêu ơi", "Mấy chị em ơi", "Cả nhà ơi", "Mọi người ơi"],
+                openers: ["Các chị ơi", "Chị em ơi", "Khách yêu ơi", "Mấy chị em ơi", "Cả nhà ơi"],
                 intents: [
                     "em xả kho đồ bộ mặc nhà mát mịn cao cấp ở đây nè",
                     "shop thanh lý lô đồ bộ đẹp giá rẻ tận gốc bao mềm mát",
                     "thanh lý xả hàng đồ bộ mặc nhà form rộng rãi thoải mái cực xinh",
                     "em xả hàng đồ bộ cao cấp bao giặt máy không nhăn không xù",
-                    "xả kho đồ bộ mẫu mới nhất giá hạt dẻ tại đây nha",
-                    "gom đơn thanh lý lô đồ bộ hot hit cho các chị em diện nhà diện phố"
+                    "xả kho đồ bộ mẫu mới nhất giá hạt dẻ tại đây nha"
                 ],
                 calls: [
                     "các chị ấn vào chọn size chọn mẫu đặt luôn nhen",
                     "chị em bấm vào xem ảnh thật và đặt giữ mẫu nhé",
                     "nhanh tay ấn vào để chọn màu ưng ý nha mọi người",
-                    "bấm vào đây để chọn size và nhận giá xả kho ưu đãi nhé",
-                    "các nàng nhấn vào đặt ngay để bên em đóng hàng sớm nhen"
+                    "bấm vào đây để chọn size và nhận giá xả kho ưu đãi nhé"
                 ]
             },
             SAURIENG: {
-                openers: ["Anh chị ơi", "Cả nhà ơi", "Các bác ơi", "Khách quý ơi", "Mọi người ơi", "Cô chú bác ơi"],
+                openers: ["Anh chị ơi", "Cả nhà ơi", "Các bác ơi", "Khách quý ơi", "Mọi người ơi"],
                 intents: [
                     "nhà em xả vườn sầu riêng cơm vàng hạt lép thơm béo ngậy tại đây",
                     "vựa em xả kho sầu riêng chín cây bao ăn bao ngọt tận vườn",
                     "thanh lý lô sầu riêng sạch loại 1 bao 1 đổi 1 tận tay",
-                    "xả hàng sầu riêng sạch giá tận gốc cho mọi người thưởng thức",
-                    "em cắt vườn xả nhanh lô sầu riêng múi dẻo ngọt lịm ở đây nè",
-                    "sầu riêng tươi ngon rụng cây bao ăn từng múi tại đây"
+                    "xả hàng sầu riêng sạch giá tận gốc cho mọi người thưởng thức"
                 ],
                 calls: [
                     "mọi người nhấn vào đây để đặt hàng giao nhanh tận nhà nhen",
                     "các anh chị bấm vào xem và đặt ngay để em ship liền nhé",
-                    "ấn vào đây để đặt sầu riêng ngon bao ngọt bao đổi trả nha",
-                    "nhanh tay bấm vào để chọn size trái theo ý thích nhé cả nhà"
+                    "ấn vào đây để đặt sầu riêng ngon bao ngọt bao đổi trả nha"
                 ]
             },
             DIENTHOAI: {
@@ -162,15 +201,12 @@ class AISupervisorEngine {
                     "em thanh lý xả kho điện thoại và gia dụng giá cực sốc tại đây",
                     "shop xả hàng tồn kho điện thoại chính hãng giá rẻ có bảo hành",
                     "thanh lý lô điện thoại giá rẻ chỉ từ 179K xài cực bền mượt",
-                    "em xả kho điện thoại uy tín bao test đổi mới tận tay ở đây",
-                    "xả hàng điện thoại giá tốt nhất thị trường kèm quà tặng tại đây",
-                    "thanh lý nhanh lô điện thoại lướt đẹp zin keng cho mọi người"
+                    "em xả kho điện thoại uy tín bao test đổi mới tận tay ở đây"
                 ],
                 calls: [
                     "mọi người ấn vào đây để xem mẫu và đặt hàng nhanh nhé",
                     "bấm vào đây để đặt máy và nhận bảo hành đầy đủ nha",
-                    "các bác nhấn vào để xem chi tiết và đặt hàng sớm nhé",
-                    "nhanh tay bấm vào để săn ưu đãi giá xả kho hôm nay nhen"
+                    "các bác nhấn vào để xem chi tiết và đặt hàng sớm nhé"
                 ]
             }
         };
@@ -201,7 +237,6 @@ class AISupervisorEngine {
     }
 }
 
-// Khởi tạo Singleton Instance
 if (!window.__aiSupervisor) {
     window.__aiSupervisor = new AISupervisorEngine();
 }

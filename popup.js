@@ -843,6 +843,7 @@ function updateProxyDisplay() {
 setInterval(updateProxyDisplay, 1000);
 updateProxyDisplay();
 loadDeviceProfileUI();
+    loadGeminiUI();
 
 
 
@@ -921,5 +922,76 @@ document.getElementById('btnTestProxy')?.addEventListener('click', async () => {
             statusBox.style.borderColor = '#f5c6cb';
         }
         alert('⚠️ Không thể kết nối qua Proxy:\n- Mã lỗi: ' + e.message + '\n\n👉 Khuyên dùng: Kiểm tra lại gói Proxy xem có bị hết hạn hoặc thay IP mới nhé sếp!');
+    }
+});
+
+
+// ==========================================
+// GOOGLE GEMINI AI REAL INTEGRATION
+// ==========================================
+function loadGeminiUI() {
+    chrome.storage.local.get(['geminiApiKey', 'geminiModel'], (res) => {
+        const input = document.getElementById('geminiApiKeyInput');
+        const select = document.getElementById('geminiModelSelect');
+        const badge = document.getElementById('geminiStatusLabel');
+
+        if (input && res.geminiApiKey) input.value = res.geminiApiKey;
+        if (select && res.geminiModel) select.value = res.geminiModel;
+
+        if (badge) {
+            if (res.geminiApiKey && res.geminiApiKey.startsWith('AIzaSy')) {
+                badge.innerText = '🟢 ĐÃ KÍCH HOẠT AI THẬT';
+                badge.style.background = '#28a745';
+                badge.style.color = '#fff';
+            } else {
+                badge.innerText = 'Chưa có Key';
+                badge.style.background = '#e0e0e0';
+                badge.style.color = '#333';
+            }
+        }
+    });
+}
+
+document.getElementById('btnSaveGeminiKey')?.addEventListener('click', () => {
+    const key = (document.getElementById('geminiApiKeyInput')?.value || '').trim();
+    const model = document.getElementById('geminiModelSelect')?.value || 'gemini-2.0-flash';
+
+    chrome.storage.local.set({ geminiApiKey: key, geminiModel: model }, () => {
+        loadGeminiUI();
+        alert('✅ ĐÃ LƯU CẤU HÌNH GOOGLE GEMINI AI THÀNH CÔNG!');
+    });
+});
+
+document.getElementById('btnTestGeminiKey')?.addEventListener('click', async () => {
+    const key = (document.getElementById('geminiApiKeyInput')?.value || '').trim();
+    const model = document.getElementById('geminiModelSelect')?.value || 'gemini-2.0-flash';
+
+    if (!key) return alert('Vui lòng điền mã Gemini API Key trước khi test!');
+
+    const btn = document.getElementById('btnTestGeminiKey');
+    if (btn) btn.innerText = '⏳ Đang test...';
+
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: 'Viết 1 câu chào bán hàng đồ bộ cực ngắn gọn' }] }]
+            })
+        });
+        const data = await res.json();
+        if (data && data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+            const answer = data.candidates[0].content.parts[0].text.trim();
+            alert(`🎉 TEST KẾT NỐI GEMINI AI THÀNH CÔNG 100%!\n\n🤖 Gemini trả lời: "${answer}"\n\n👉 Bot hiện đã có TRÍ TUỆ NHÂN TẠO THẬT 100%!`);
+        } else if (data.error) {
+            alert(`⚠️ Lỗi từ Google API:\n- Mã lỗi: ${data.error.code}\n- Chi tiết: ${data.error.message}\n\n👉 Lưu ý: Nếu dự án Firebase chưa bật Generative Language API, sếp vào Google AI Studio lấy 1 Key mới miễn phí là xong ngay!`);
+        } else {
+            alert('⚠️ Không nhận được phản hồi từ AI.');
+        }
+    } catch(e) {
+        alert('❌ Lỗi kết nối máy chủ Google: ' + e.message);
+    } finally {
+        if (btn) btn.innerText = '⚡ TEST AI';
     }
 });
