@@ -758,6 +758,10 @@ async function processSingleReel(cfg, targetPageName) {
     logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
     await delay(5, 7);
 
+    // 🧠 AI SUPERVISOR: Tự giải phóng các lớp phủ che mờ trước khi ghim
+    if (window.__aiSupervisor) {
+        await window.__aiSupervisor.inspectAndHeal('Tìm Nút 3 Chấm');
+    }
     // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM (MULTI-LAYER 5 TẦNG 3-DOTS MENU)
     logMsg("🔍 Tìm nút 3 chấm [Comment menu]...");
     const dotsOk = await retryFindAndClick(

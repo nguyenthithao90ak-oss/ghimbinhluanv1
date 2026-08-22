@@ -447,6 +447,21 @@ function processNextStep() {
         
         if (step === "FINISH") {
             addLog("🎉 ĐÃ HOÀN THÀNH CHU TRÌNH CHO TẤT CẢ CÁC PAGE!");
+            // AI Executive Summary
+            chrome.storage.local.get(['teleBotToken', 'teleChatId', 'sessionHistory'], (teleRes) => {
+                if (teleRes.teleBotToken && teleRes.teleChatId) {
+                    const lastSess = (teleRes.sessionHistory && teleRes.sessionHistory[0]) || {};
+                    const total = lastSess.totalPages || 0;
+                    const success = lastSess.successCount || 0;
+                    const rate = total > 0 ? Math.round((success / total) * 100) : 100;
+                    const aiReport = `🧠 *[AI BÁO CÁO TỔNG KẾT PHIÊN CHẠY]*\n━━━━━━━━━━━━━━━━━━\n🎯 *Tỷ lệ thành công:* ${rate}% (${success}/${total} Nick)\n🕒 *Thời gian:* ${new Date().toLocaleTimeString()} - ${new Date().toLocaleDateString()}\n🤖 *Trạng thái AI Giám Sát:* Hoạt động 24/7 bảo vệ tài khoản & tự phục hồi.\n💡 *Đề xuất AI:* Tiếp tục duy trì kịch bản hiện tại.`;
+                    fetch(`https://api.telegram.org/bot${teleRes.teleBotToken.trim()}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: teleRes.teleChatId.trim(), text: aiReport, parse_mode: 'Markdown' })
+                    }).catch(e => {});
+                }
+            });
             chrome.storage.local.set({ isBotRunning: false });
             if (typeof chrome !== 'undefined' && chrome.proxy) {
                 chrome.proxy.settings.clear({ scope: "regular" });
@@ -592,7 +607,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const pName = request.pageName || currentCfg?.pageName || "Nick";
             chrome.alarms.clear('nickSessionTimeout');
 
-            addLog(`🚨 [KHẨN CẤP] Nick "${pName}" BỊ HẠN CHẾ TÍNH NĂNG / CHECKPOINT! Đã bắn cảnh báo đỏ về Telegram!`);
+            addLog(`🚨 [AI DOCTOR] Phát hiện Nick "${pName}" có dấu hiệu bị hạn chế / Checkpoint! AI đang kích hoạt quy trình cách ly an toàn...`);
+            // Gửi báo cáo AI Doctor trực tiếp qua Telegram
+            chrome.storage.local.get(['teleBotToken', 'teleChatId'], (teleRes) => {
+                if (teleRes.teleBotToken && teleRes.teleChatId) {
+                    const aiMsg = `🤖 *[AI DOCTOR - BÁO CÁO SỨC KHỎE NICK]*\n━━━━━━━━━━━━━━━━━━\n⚠️ *Nick bị chặn:* ${pName}\n🩺 *Chẩn đoán AI:* Facebook tạm khóa tính năng hoặc dính Checkpoint.\n🛡️ *Hành động AI:* Đã tự động cách ly, cho nick này nghỉ 1 vòng để bảo vệ tài khoản vĩnh viễn!\n⏰ *Thời gian:* ${new Date().toLocaleTimeString()}`;
+                    fetch(`https://api.telegram.org/bot${teleRes.teleBotToken.trim()}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ chat_id: teleRes.teleChatId.trim(), text: aiMsg, parse_mode: 'Markdown' })
+                    }).catch(e => {});
+                }
+            });
             addHistoryRecord(pName, "🚨 Bị Hạn Chế / Block", request.reason || "Facebook chặn tính năng bình luận/ghim");
 
             const cooldownSecs = Math.floor(Math.random() * 7) + 4;
@@ -1103,7 +1129,7 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
                 });
                 chrome.scripting.executeScript({
                     target: { tabId: tId },
-                    files: ['auto_pin.js']
+                    files: ['ai_supervisor.js', 'auto_pin.js']
                 }, () => {
                     chrome.tabs.sendMessage(tId, { action: "runChecking", pageConfigs: [config], targetPageName: config.pageName });
                 });
@@ -1121,7 +1147,7 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
                 });
                 chrome.scripting.executeScript({
                     target: { tabId: tId },
-                    files: ['auto_pin.js']
+                    files: ['ai_supervisor.js', 'auto_pin.js']
                 }, () => {
                     chrome.tabs.sendMessage(tId, { action: "runChecking", pageConfigs: [config], targetPageName: config.pageName });
                 });
