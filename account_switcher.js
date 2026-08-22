@@ -89,6 +89,7 @@ function logMsg(msg) {
                 if (chrome.runtime.lastError) return;
                 let logs = (result && result.botLogs) || [];
                 logs.push(formatted);
+                logs = logs.slice(-25);
                 chrome.storage.local.set({ botLogs: logs });
             });
         }
