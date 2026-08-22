@@ -758,35 +758,101 @@ async function processSingleReel(cfg, targetPageName) {
     logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
     await delay(5, 7);
 
-    // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM (MULTI-LAYER 3-DOTS MENU)
+    // 8. CHỜ BÌNH LUẬN HIỆN, BẤM 3 CHẤM, GHIM (MULTI-LAYER 5 TẦNG 3-DOTS MENU)
     logMsg("🔍 Tìm nút 3 chấm [Comment menu]...");
     const dotsOk = await retryFindAndClick(
         () => {
-            // Lớp 1: Khớp chính xác aria-label
-            const exactBtns = Array.from(document.querySelectorAll('div[role="button"][aria-label="Comment menu"], [aria-label*="menu bình luận"], [aria-label*="tùy chọn"]'));
-            if (exactBtns.length > 0) return exactBtns[0];
+            // TẦNG 1: Tìm trực tiếp theo chuỗi ký tự 3 chấm (••• hoặc ... hoặc ··· hoặc … hoặc ︙ hoặc ⋮)
+            const textDots = Array.from(document.querySelectorAll('div, span, button, i, a')).filter(el => {
+                if (el.children.length > 2) return false;
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0 || r.top < 0 || r.top > window.innerHeight) return false;
+                const txt = el.innerText ? el.innerText.trim() : '';
+                return txt === '•••' || txt === '...' || txt === '···' || txt === '…' || txt === '︙' || txt === '⋮';
+            });
+            if (textDots.length > 0) {
+                // Lấy nút 3 chấm ở bình luận mới nhất
+                return textDots[textDots.length - 1];
+            }
 
-            // Lớp 2: Tìm xung quanh đoạn text comment mới đăng
-            const myText = Array.from(document.querySelectorAll('span, div, p')).find(el =>
-                el.innerText && el.innerText.trim().toLowerCase().includes(cfg.commentText.substring(0, 10).toLowerCase())
-            );
-            if (myText) {
-                let parent = myText;
+            // TẦNG 2: Khớp aria-label hoặc title cho menu bình luận
+            const exactBtns = Array.from(document.querySelectorAll('[aria-label], [title], [role="button"]')).filter(el => {
+                const r = el.getBoundingClientRect();
+                if (r.width === 0 || r.height === 0 || r.top < 0 || r.top > window.innerHeight) return false;
+                const aria = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).toLowerCase();
+                return aria.includes('comment menu') || aria.includes('menu bình luận') || aria.includes('tùy chọn bình luận') || 
+                       aria.includes('comment options') || aria.includes('more options') || aria.includes('hành động cho bình luận');
+            });
+            if (exactBtns.length > 0) return exactBtns[exactBtns.length - 1];
+
+            // TẦNG 3: Tìm từ vùng chứa bình luận (theo Tên Nick hoặc Nội dung Spun hoặc Link sản phẩm)
+            const commentContainers = Array.from(document.querySelectorAll('div, article, span, p')).filter(el => {
+                const txt = (el.innerText || '').toLowerCase();
+                const hasAuthor = targetPageName && txt.includes(targetPageName.toLowerCase());
+                const hasKeyword = txt.includes('dienthoaigiare') || txt.includes('dobogiare') || txt.includes('saurieng') || txt.includes('tonghopquan');
+                const hasSnippet = spunText && txt.includes(spunText.substring(0, 15).toLowerCase());
+                return hasAuthor || hasKeyword || hasSnippet;
+            });
+
+            for (let container of commentContainers) {
+                let p = container;
                 for (let d = 0; d < 6; d++) {
-                    if (!parent || parent === document.body) break;
-                    const btn = Array.from(parent.querySelectorAll('div[role="button"], i, svg, span, button')).find(b => {
+                    if (!p || p === document.body) break;
+                    const btn = Array.from(p.querySelectorAll('div[role="button"], i, svg, span, button')).find(b => {
                         const r = b.getBoundingClientRect();
                         const aria = (b.getAttribute('aria-label') || '').toLowerCase();
                         const txt = (b.innerText || '').trim();
-                        return r.width > 0 && r.height > 0 && (aria.includes('menu') || aria.includes('option') || txt === '...' || txt === '•••');
+                        return r.width > 0 && r.height > 0 && (
+                            aria.includes('menu') || aria.includes('option') || aria.includes('tùy chọn') ||
+                            txt === '...' || txt === '•••' || txt === '···' || txt === '…' || txt === '︙' || txt === '⋮'
+                        );
+                    });
+                    if (btn) return btn;
+                    p = p.parentElement;
+                }
+            }
+
+            // TẦNG 4: Tìm lân cận thẻ ảnh vừa tải lên (Ảnh bình luận)
+            const commentImgs = Array.from(document.querySelectorAll('img')).filter(img => {
+                const r = img.getBoundingClientRect();
+                return r.top > 80 && r.top < window.innerHeight - 80 && r.width > 60 && r.height > 60;
+            });
+            for (let img of commentImgs) {
+                let p = img.parentElement;
+                for (let d = 0; d < 5; d++) {
+                    if (!p || p === document.body) break;
+                    const btn = Array.from(p.querySelectorAll('div[role="button"], span, button, i, svg')).find(b => {
+                        const r = b.getBoundingClientRect();
+                        const txt = (b.innerText || '').trim();
+                        return r.width > 0 && r.height > 0 && (txt === '•••' || txt === '...' || txt === '…');
+                    });
+                    if (btn) return btn;
+                    p = p.parentElement;
+                }
+            }
+
+            // TẦNG 5: Tìm phía trên các nút "Thích" / "Trả lời" / "Vừa xong"
+            const replyBtns = Array.from(document.querySelectorAll('span, div, a')).filter(el => {
+                const txt = (el.innerText || '').trim().toLowerCase();
+                return txt === 'trả lời' || txt === 'reply' || txt === 'vừa xong' || txt === 'just now';
+            });
+            for (let rep of replyBtns) {
+                let parent = rep.parentElement;
+                for (let d = 0; d < 5; d++) {
+                    if (!parent || parent === document.body) break;
+                    const btn = Array.from(parent.querySelectorAll('div[role="button"], span, button, i, svg')).find(b => {
+                        const r = b.getBoundingClientRect();
+                        const txt = (b.innerText || '').trim();
+                        return r.width > 0 && r.height > 0 && (txt === '•••' || txt === '...' || txt === '…');
                     });
                     if (btn) return btn;
                     parent = parent.parentElement;
                 }
             }
+
             return null;
         },
-        'Nút [Comment menu] (Multi-layer)', 4, 2
+        'Nút 3 chấm [Comment menu] (Multi-layer 5 Tầng)', 6, 2
     );
 
     if (dotsOk) {
