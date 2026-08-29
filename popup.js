@@ -286,16 +286,22 @@ function renderLogs() {
         
         lastRenderedLogsText = newText;
 
-        // 🎨 HIGHLIGHT TÊN NICK MÀU ĐỎ + TO HƠN để dễ đọc
+        // 🎨 LOG GỌN - DỄ ĐỌC
         const htmlLines = logs.map(line => {
             // Escape HTML
             let safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            // Highlight tên nick trong dấu ngoặc kép "..." -> đỏ, to, đậm
-            safe = safe.replace(/&quot;([^&]+)&quot;/g, '<span style="color:#ff4444;font-size:13px;font-weight:bold;">"$1"</span>');
-            safe = safe.replace(/"([^"]+)"/g, '<span style="color:#ff4444;font-size:13px;font-weight:bold;">"$1"</span>');
-            return safe;
+            // Tách timestamp [HH:MM] và nội dung
+            const match = safe.match(/^\[(\d{2}:\d{2})\]\s*(.*)/);
+            if (match) {
+                let content = match[2];
+                // Nick trong "" → đỏ đậm
+                content = content.replace(/&quot;([^&]+)&quot;/g, '<span style="color:#ff4444;font-weight:bold;">"$1"</span>');
+                content = content.replace(/"([^"]+)"/g, '<span style="color:#ff4444;font-weight:bold;">"$1"</span>');
+                return `<span style="color:#888;font-size:10px;">${match[1]}</span> <span style="color:#e0e0e0;">${content}</span>`;
+            }
+            return `<span style="color:#e0e0e0;">${safe}</span>`;
         });
-        logBox.innerHTML = htmlLines.join('\n');
+        logBox.innerHTML = htmlLines.join('<br>');
 
         if (isNearBottom) {
             logBox.scrollTop = logBox.scrollHeight;
@@ -825,8 +831,8 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" }, () => {
                 safeRuntimeSendMessage({ action: "stopBotProcess" });
                 chrome.storage.local.get(['botLogs'], (res) => {
-                    let logs = res.botLogs || [];
-                    logs.push(`[${new Date().toLocaleTimeString()}] 🛑 Đã gửi lệnh DỪNG BOT!`);
+                    const t = new Date(); const hh = t.getHours().toString().padStart(2,'0'); const mm = t.getMinutes().toString().padStart(2,'0');
+                    logs.push(`[${hh}:${mm}] 🛑 Đã gửi lệnh DỪNG BOT!`);
                     chrome.storage.local.set({ botLogs: logs });
                 });
                 updateStartButtonUI();

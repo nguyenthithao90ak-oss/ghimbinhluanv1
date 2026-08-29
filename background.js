@@ -337,8 +337,8 @@ function shuffleArray(array) {
 
 function addLog(msg) {
     chrome.storage.local.get(['botLogs'], (result) => {
-        let logs = result.botLogs || [];
-        logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+        const t = new Date(); const hh = t.getHours().toString().padStart(2,'0'); const mm = t.getMinutes().toString().padStart(2,'0');
+        logs.push(`[${hh}:${mm}] ${msg}`);
         chrome.storage.local.set({ botLogs: logs });
     });
 }

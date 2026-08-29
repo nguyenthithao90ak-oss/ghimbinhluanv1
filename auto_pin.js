@@ -189,8 +189,8 @@ function setupBlockDetector(targetPageName) {
 }
 
 function logMsg(msg) {
-    const time = new Date().toLocaleTimeString();
-    const formatted = `[${time}] ${msg}`;
+    const t = new Date(); const hh = t.getHours().toString().padStart(2,'0'); const mm = t.getMinutes().toString().padStart(2,'0');
+    const formatted = `[${hh}:${mm}] ${msg}`;
     console.log(formatted);
     try {
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
