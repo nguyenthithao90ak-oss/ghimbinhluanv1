@@ -428,6 +428,17 @@ async function autoLikeOwnPinnedComment() {
     }
 }
 
+// ⏱️ TIMEOUT AN TOÀN: Tự động skip video nếu bị kẹt quá lâu (mặc định 180 giây = 3 phút)
+function withTimeout(promise, timeoutMs, fallbackValue) {
+    return Promise.race([
+        promise,
+        new Promise((resolve) => setTimeout(() => {
+            logMsg(`⏱️ TIMEOUT: Thao tác vượt quá ${Math.round(timeoutMs / 1000)} giây -> Tự động skip!`);
+            resolve(fallbackValue);
+        }, timeoutMs))
+    ]);
+}
+
 async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
     // 3. BẤM NÚT BÌNH LUẬN (SELECTOR MULTI-LAYER THÔNG MINH)
     await delay(1, 3);
@@ -784,8 +795,9 @@ async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
     );
 
     if (input) {
+        // 🎲 RANDOM LẠI SPINTAX MỖI VIDEO ĐỂ NỘI DUNG KHÁC NHAU (CHỐNG SPAM)
         const spunText = parseSpintax(cfg.commentText);
-        logMsg(`💬 Nội dung ngẫu nhiên (Spintax): "${spunText}"`);
+        logMsg(`💬 [Video ${videoIndex}] Nội dung ngẫu nhiên (Spintax): "${spunText}"`);
         await typeHumanText(input, spunText);
         await delay(1, 3);
     }
@@ -1146,7 +1158,7 @@ async function runChecking(pageConfigs, targetPageName) {
         await delay(watchSecs1);
         await humanScrollJitter();
 
-        const res1 = await processSingleReel(cfg, targetPageName, 1);
+        const res1 = await withTimeout(processSingleReel(cfg, targetPageName, 1), 180000, false);
         let statusV1 = "";
         if (res1 === "ALREADY_EXISTS") {
             statusV1 = "V1: Đã ghim sẵn từ trước";
@@ -1217,7 +1229,7 @@ async function runChecking(pageConfigs, targetPageName) {
         await delay(watchSecs2);
         await humanScrollJitter();
 
-        const res2 = await processSingleReel(cfg, targetPageName, 2);
+        const res2 = await withTimeout(processSingleReel(cfg, targetPageName, 2), 180000, false);
         let statusV2 = "";
         if (res2 === "ALREADY_EXISTS") {
             statusV2 = "V2: Đã ghim sẵn từ trước";
@@ -1281,7 +1293,7 @@ async function runChecking(pageConfigs, targetPageName) {
         await delay(watchSecs3);
         await humanScrollJitter();
 
-        const res3 = await processSingleReel(cfg, targetPageName, 3);
+        const res3 = await withTimeout(processSingleReel(cfg, targetPageName, 3), 180000, false);
         let statusV3 = "";
         if (res3 === "ALREADY_EXISTS") {
             statusV3 = "V3: Đã ghim sẵn từ trước";
