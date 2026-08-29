@@ -1146,10 +1146,6 @@ async function runChecking(pageConfigs, targetPageName) {
         await delay(watchSecs1);
         await humanScrollJitter();
 
-        // LƯU URL REEL ĐẦU TIÊN ĐỂ DÙNG LẠI
-        const firstReelHref = (firstEl.tagName === 'A' && firstEl.href) ? firstEl.href : null;
-        logMsg(`📌 URL Reel đầu tiên: ${firstReelHref || '(không có href, sẽ click lại element)'}`);
-
         const res1 = await processSingleReel(cfg, targetPageName, 1);
         let statusV1 = "";
         if (res1 === "ALREADY_EXISTS") {
@@ -1164,35 +1160,56 @@ async function runChecking(pageConfigs, targetPageName) {
         }
 
         // ============================================================
-        // 🔀 CHUYỂN THẲNG ĐẾN URL REEL ĐẦU TIÊN RỒI LƯỚT XUỐNG VIDEO 2
+        // 🔙 QUAY LẠI TRANG PROFILE RỒI CLICK VIDEO THỨ 2 TRỰC TIẾP
         // ============================================================
         // --- VIDEO REELS 2 ---
         logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-        if (firstReelHref) {
-            logMsg(`🔀 Chuyển hướng thẳng đến URL Reel đầu tiên: ${firstReelHref}`);
-            window.location.href = firstReelHref;
-        } else {
-            logMsg(`🔀 Không có URL, dùng history.back() rồi tìm lại...`);
+        // BƯỚC 1: QUAY LẠI TRANG PROFILE (REELS TAB)
+        logMsg(`🔙 Dùng history.back() để quay về trang Profile...`);
+        window.history.back();
+        await delay(2, 3);
+        // Nếu vẫn ở trang Reel, back thêm
+        if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
+            logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần...`);
             window.history.back();
             await delay(2, 3);
-            if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
-                window.history.back();
-                await delay(2, 3);
-            }
+        }
+        logMsg(`📍 Đang ở: ${window.location.href}`);
+        await delay(2, 3);
+
+        // BƯỚC 2: TÌM LẠI DANH SÁCH VIDEO REELS TRÊN TRANG PROFILE
+        logMsg(`🔍 Tìm lại danh sách Video Reels trên trang Profile...`);
+        let reelLinks2 = [];
+        for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
+            reelLinks2 = findReelLinks();
+            if (reelLinks2.length >= 2) break;
+            logMsg(`🔍 [Lần ${findAttempt + 1}/5] Tìm thấy ${reelLinks2.length} Reels, chờ thêm...`);
+            await delay(1, 2);
         }
 
-        // ĐỢI TRANG REEL LOAD XONG
-        await delay(4, 5);
-        logMsg(`📍 Đang ở: ${window.location.href}`);
+        // BƯỚC 3: CLICK THẲNG VÀO VIDEO THỨ 2 TRONG LƯỚI
+        if (reelLinks2.length >= 2) {
+            const secondEl = reelLinks2[1];
+            const sr = secondEl.getBoundingClientRect();
+            logMsg(`🎯 Tìm thấy ${reelLinks2.length} Reels. Click thẳng vào Video thứ 2 (top=${Math.round(sr.top)}, left=${Math.round(sr.left)})...`);
+            if (sr.top > window.innerHeight * 0.7) {
+                window.scrollBy(0, sr.top - window.innerHeight * 0.4);
+                await delay(1, 2);
+            }
+            await safeClick(secondEl);
+        } else if (reelLinks2.length === 1) {
+            logMsg(`⚠️ Chỉ thấy 1 Reel, click vào nó rồi thử lướt xuống...`);
+            await safeClick(reelLinks2[0]);
+            await delay(3, 4);
+            window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }));
+        } else {
+            logMsg(`⚠️ Không tìm thấy Reels nào trên Profile!`);
+        }
 
-        // LƯỚT XUỐNG ĐỂ SANG VIDEO REELS 2
-        logMsg(`👇 Lướt xuống để chuyển sang Video Reels 2...`);
-        window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
-        await delay(1, 1);
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }));
-        window.dispatchEvent(new WheelEvent('wheel', { deltaY: window.innerHeight, bubbles: true }));
-        await delay(2, 3);
+        // ĐỢI VIDEO 2 LOAD
+        await delay(3, 4);
 
         // GIẢ LẬP XEM VIDEO 2 TỰ NHIÊN
         const watchSecs2 = Math.floor(Math.random() * 5) + 3;
