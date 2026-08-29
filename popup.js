@@ -602,6 +602,46 @@ function updateProxyStatusUI() {
 
 loadProxySettings();
 
+// 🚀 NẠP NHANH NICK - Đọc file JSON từ extension và import vào storage
+function quickLoadNick(filename, label) {
+    if (!confirm(`Bạn có chắc muốn nạp "${label}"?\n\nDữ liệu cũ sẽ bị thay thế!`)) return;
+    
+    fetch(chrome.runtime.getURL(filename))
+        .then(res => res.json())
+        .then(data => {
+            const configs = data.pageConfigs || data;
+            if (!configs || !Array.isArray(configs) || configs.length === 0) {
+                alert('❌ File không có dữ liệu pageConfigs hợp lệ!');
+                return;
+            }
+            const st = { pageConfigs: configs };
+            if (data.runHistory) st.runHistory = data.runHistory;
+            if (data.settings) Object.assign(st, data.settings);
+            
+            chrome.storage.local.set(st, () => {
+                alert(`✅ Đã nạp "${label}" thành công!\n\n📋 ${configs.length} Nick/Page đã được tải.`);
+                // Reload lại giao diện
+                if (typeof loadConfigs === 'function') loadConfigs();
+                if (typeof loadRunPageOptions === 'function') loadRunPageOptions();
+            });
+        })
+        .catch(err => {
+            alert('❌ Lỗi đọc file: ' + err.message);
+        });
+}
+
+document.getElementById('btnLoadQuanAo')?.addEventListener('click', () => {
+    quickLoadNick('data_quanao.json', 'Nạp lại nick điện thoại gì seven');
+});
+
+document.getElementById('btnLoadGiseven')?.addEventListener('click', () => {
+    quickLoadNick('data_giseven.json', 'Giseven điện thoại');
+});
+
+document.getElementById('btnLoadNguyenThao')?.addEventListener('click', () => {
+    quickLoadNick('data_nguyenthao.json', 'Nguyễn Thạo đồ bộ');
+});
+
 // KHÔI PHỤC CẤU HÌNH KHI MỞ TAB
 document.getElementById('tabConfigBtn').addEventListener('click', () => {
     loadProxySettings();
