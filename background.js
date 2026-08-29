@@ -555,14 +555,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // ✅ HỦY WATCHDOG ngay khi nick hoàn thành bình thường
             chrome.alarms.clear('nickSessionTimeout');
 
-            if (request.summaryStatus) {
-                const statusTitle = request.summaryStatus;
-                const details = request.summaryDetails || "Đã kiểm tra 2 Video Reels";
-                addLog(`📌 Page "${pName}": ${statusTitle} [${details}]`);
-                addHistoryRecord(pName, statusTitle, details);
-            } else if (request.alreadyExisted) {
-                addLog(`ℹ️ Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
-                addHistoryRecord(pName, "ℹ️ Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
+            if (request.summaryStatus) {
+                const statusTitle = request.summaryStatus;
+                const details = request.summaryDetails || "Đã kiểm tra 2 Video Reels";
+                addLog(`📌 Page "${pName}": ${statusTitle} [${details}]`);
+                addHistoryRecord(pName, statusTitle, details);
+            } else if (request.alreadyExisted) {
+                addLog(`ℹ️  Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
+                addHistoryRecord(pName, "ℹ️  Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
             } else if (request.newlyPosted) {
                 addLog(`✅ Page "${pName}": ĐÃ ĐĂNG BÀI MỚI & GHIM THÀNH CÔNG!`);
                 addHistoryRecord(pName, "✅ Đăng & Ghim mới", "Đã đăng bài mẫu + đính kèm ảnh + ghim thành công");
@@ -570,6 +570,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 addLog(`⚠️ Page "${pName}": Thao tác không thành công -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo.`);
                 addHistoryRecord(pName, "⚠️ Thao tác không thành công", "Không thể tìm thấy phần tử hoặc Facebook không phản hồi");
             }
+
+            // LUU KET QUA NICK DA HOAN THANH DE UU TIEN VONG SAU
+            const isSuccess = !!(request.alreadyExisted || request.newlyPosted || (request.summaryStatus && !request.failed));
+            if (isSuccess && pName) {
+                chrome.storage.local.get(['completedNicks'], (cRes) => {
+                    let completed = cRes.completedNicks || [];
+                    if (!completed.includes(pName)) {
+                        completed.push(pName);
+                    }
+                    chrome.storage.local.set({ completedNicks: completed });
+                });
+            }
             
             chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax'], (settings) => {
                 const strat = settings.loopStrategy || 'ONCE';
@@ -780,6 +792,7 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
                     targetConfigs: randomizedConfigs,
                     originalTargetConfigs: rawConfigs,
                     retryQueue: [],
+                    completedNicks: [],
                     currentConfigIndex: 0,
                     isRetryPhase: false,
                     tabId: targetTabId,
@@ -922,10 +935,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
             const rawConfigs = state.originalTargetConfigs || [];
             if (rawConfigs.length === 0) return;
 
-            const newShuffledConfigs = rawConfigs.length > 1 ? shuffleArray(rawConfigs) : rawConfigs;
-            const newOrderNames = newShuffledConfigs.map((c, i) => `[${i + 1}] ${c.pageName}`).join(' ➔ ');
+            // SAP XEP UU TIEN: Nick chua hoan thanh len dau, nick da thanh cong xuong cuoi
+            const completedList = [];
+            chrome.storage.local.get(['completedNicks'], (cNicks) => {
+                const completed = cNicks.completedNicks || [];
+                const notDone = rawConfigs.filter(c => !completed.includes(c.pageName));
+                const done = rawConfigs.filter(c => completed.includes(c.pageName));
+                const shuffledNotDone = notDone.length > 1 ? shuffleArray(notDone) : notDone;
+                const shuffledDone = done.length > 1 ? shuffleArray(done) : done;
+                const newShuffledConfigs = [...shuffledNotDone, ...shuffledDone];
+                const newOrderNames = newShuffledConfigs.map((c, idx) => `[${idx + 1}] ${c.pageName}`).join(" > ");
 
-            addLog(`🎲 VÒNG MỚI: Đã xáo trộn ngẫu nhiên thứ tự cho ${newShuffledConfigs.length} Page (Đảm bảo mỗi Page chạy đúng 1 lần/vòng)...`);
+                addLog(`VONG MOI: ${shuffledNotDone.length} nick chua xong (uu tien) + ${shuffledDone.length} nick da xong -> Tong ${newShuffledConfigs.length} Page`);
             addLog(`📋 Thứ tự ngẫu nhiên vòng mới: ${newOrderNames}`);
 
             chrome.storage.local.set({
@@ -934,6 +955,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                 currentConfigIndex: 0,
                 step: "SWITCHING"
             }, processNextStep);
+            });
         });
     }
     else if (alarm.name === 'telegramPoll') {
