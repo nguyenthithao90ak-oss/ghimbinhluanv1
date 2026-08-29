@@ -262,22 +262,43 @@ function loadRunPageOptions() {
     });
 }
 
-// LOG MONITOR REALTIME
+// LOG MONITOR REALTIME (THÔNG MINH: KHÔNG TỰ NHẢY XUỐNG KHI ĐANG XEM LOG CŨ)
+let lastRenderedLogsText = "";
+
 function renderLogs() {
     chrome.storage.local.get(['botLogs'], (result) => {
         const logs = result.botLogs || [];
         const logBox = document.getElementById('logContainer');
+        if (!logBox) return;
+
         if (logs.length === 0) {
             logBox.innerText = "Đang sẵn sàng... Vui lòng bấm Bắt Đầu.";
+            lastRenderedLogsText = "";
             return;
         }
-        logBox.innerText = logs.join('\n');
-        logBox.scrollTop = logBox.scrollHeight;
+
+        const newText = logs.join('\n');
+        if (newText === lastRenderedLogsText) {
+            return; // Nội dung không đổi, không can thiệp vị trí cuộn
+        }
+
+        // Kiểm tra xem người dùng có đang ở sát đáy không (cách đáy dưới 40px)
+        const isNearBottom = (logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight) < 40;
+        
+        lastRenderedLogsText = newText;
+        logBox.innerText = newText;
+
+        // Chỉ tự cuộn xuống đáy nếu người dùng đang ở sát đáy. 
+        // Nếu người dùng đã lướt lên để xem log cũ -> GIỮ NGUYÊN VỊ TRÍ, TUYỆT ĐỐI KHÔNG TỰ NHẢY!
+        if (isNearBottom) {
+            logBox.scrollTop = logBox.scrollHeight;
+        }
     });
 }
 
 document.getElementById('btnClearLog').addEventListener('click', () => {
     chrome.storage.local.set({ botLogs: [] }, () => {
+        lastRenderedLogsText = "";
         renderLogs();
     });
 });

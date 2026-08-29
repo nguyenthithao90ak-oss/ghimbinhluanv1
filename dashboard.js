@@ -254,16 +254,28 @@ document.getElementById('dashConfigForm').addEventListener('submit', async (e) =
     });
 });
 
-// REALTIME LOG CONSOLE
+// REALTIME LOG CONSOLE (KHÔNG TỰ NHẢY XUỐNG KHI ĐANG XEM LOG CŨ)
+let lastDashLogsText = "";
+
 function renderDashboardLogs() {
     chrome.storage.local.get(['botLogs', 'isBotRunning'], (result) => {
         const logs = result.botLogs || [];
         const consoleBox = document.getElementById('dashLogConsole');
-        if (logs.length === 0) {
-            consoleBox.innerText = "Đang sẵn sàng... Vui lòng bấm Bắt Đầu Chạy Auto.";
-        } else {
-            consoleBox.innerText = logs.join('\n');
-            consoleBox.scrollTop = consoleBox.scrollHeight;
+        if (consoleBox) {
+            if (logs.length === 0) {
+                consoleBox.innerText = "Đang sẵn sàng... Vui lòng bấm Bắt Đầu Chạy Auto.";
+                lastDashLogsText = "";
+            } else {
+                const newText = logs.join('\n');
+                if (newText !== lastDashLogsText) {
+                    const isNearBottom = (consoleBox.scrollHeight - consoleBox.scrollTop - consoleBox.clientHeight) < 40;
+                    lastDashLogsText = newText;
+                    consoleBox.innerText = newText;
+                    if (isNearBottom) {
+                        consoleBox.scrollTop = consoleBox.scrollHeight;
+                    }
+                }
+            }
         }
 
         const startBtn = document.getElementById('btnDashStart');
