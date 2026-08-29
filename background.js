@@ -119,6 +119,59 @@ function applyDeviceEmulationFromStorage() {
 }
 applyDeviceEmulationFromStorage();
 
+// 📱 INJECT DEVICE FINGERPRINT VÀO MAIN WORLD (bypass CSP)
+function injectDeviceToMainWorld(devData) {
+    try { Object.defineProperty(navigator, 'userAgent', { get: function(){ return devData.ua; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'appVersion', { get: function(){ return devData.appVer; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'platform', { get: function(){ return devData.platform; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: function(){ return devData.maxTouch; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'vendor', { get: function(){ return devData.vendor; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'deviceMemory', { get: function(){ return devData.deviceMemory; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: function(){ return devData.hardwareConcurrency; }, configurable: true }); } catch(e){}
+    if (devData.uadPlatform === 'iOS') {
+        try { Object.defineProperty(navigator, 'userAgentData', { get: function(){ return undefined; }, configurable: true }); } catch(e){}
+    } else {
+        try { Object.defineProperty(navigator, 'userAgentData', {
+            get: function(){ return {
+                brands: devData.brands, mobile: true, platform: devData.uadPlatform,
+                getHighEntropyValues: function(){ return Promise.resolve({
+                    architecture: devData.arch, bitness: devData.bitness, model: devData.model,
+                    platform: devData.uadPlatform, platformVersion: devData.platformVer
+                }); }
+            }; }, configurable: true
+        }); } catch(e){}
+    }
+}
+
+// DB cho main world (phải match với DEVICE_DATABASE)
+const DEVICE_INJECT_DB = {
+    'samsung_s24': { ua:'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36', appVer:'5.0 (Linux; Android 14; SM-S928B)', platform:'Linux armv8l', uadPlatform:'Android', model:'SM-S928B', platformVer:'14.0.0', arch:'arm64', bitness:'64', brands:[{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}], vendor:'Google Inc.', maxTouch:5, deviceMemory:12, hardwareConcurrency:8 },
+    'iphone_14_pro_max': { ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', appVer:'5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X)', platform:'iPhone', uadPlatform:'iOS', model:'iPhone15,3', platformVer:'17.5.1', arch:'arm64', bitness:'64', brands:[], vendor:'Apple Computer, Inc.', maxTouch:5, deviceMemory:6, hardwareConcurrency:6 },
+    'iphone_15': { ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', appVer:'5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X)', platform:'iPhone', uadPlatform:'iOS', model:'iPhone16,2', platformVer:'17.5.1', arch:'arm64', bitness:'64', brands:[], vendor:'Apple Computer, Inc.', maxTouch:5, deviceMemory:8, hardwareConcurrency:6 },
+    'xiaomi_14': { ua:'Mozilla/5.0 (Linux; Android 14; 23116PN5BC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36', appVer:'5.0 (Linux; Android 14; 23116PN5BC)', platform:'Linux aarch64', uadPlatform:'Android', model:'23116PN5BC', platformVer:'14.0.0', arch:'arm64', bitness:'64', brands:[{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}], vendor:'Google Inc.', maxTouch:5, deviceMemory:12, hardwareConcurrency:8 },
+    'pixel_8': { ua:'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36', appVer:'5.0 (Linux; Android 14; Pixel 8 Pro)', platform:'Linux aarch64', uadPlatform:'Android', model:'Pixel 8 Pro', platformVer:'14.0.0', arch:'arm64', bitness:'64', brands:[{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}], vendor:'Google Inc.', maxTouch:5, deviceMemory:12, hardwareConcurrency:8 }
+};
+
+// Inject vào MAIN WORLD khi tab Facebook load
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'loading' && tab.url && (tab.url.includes('facebook.com') || tab.url.includes('fbcdn.net'))) {
+        chrome.storage.local.get(['deviceProfileKey'], (res) => {
+            const key = res.deviceProfileKey || 'samsung_s24';
+            const devData = DEVICE_INJECT_DB[key] || DEVICE_INJECT_DB['samsung_s24'];
+            try {
+                chrome.scripting.executeScript({
+                    target: { tabId: tabId },
+                    world: 'MAIN',
+                    func: injectDeviceToMainWorld,
+                    args: [devData]
+                });
+            } catch(e) {
+                console.log('⚠️ Không thể inject device vào tab:', e.message);
+            }
+        });
+    }
+});
+
 // ======================================================================================
 // CẤU HÌNH PROXY HTTP (SẴN SÀNG THÊM DANH SÁCH PROXY HTTP TẠI ĐÂY)
 // ======================================================================================
