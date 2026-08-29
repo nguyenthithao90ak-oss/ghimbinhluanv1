@@ -1164,51 +1164,27 @@ async function runChecking(pageConfigs, targetPageName) {
         }
 
         // ============================================================
-        // 🔙 QUAY VỀ TRANG PROFILE (BỎ QUA NÚT QUAY LẠI - KHÔNG HOẠT ĐỘNG)
+        // 🔀 CHUYỂN THẲNG ĐẾN URL REEL ĐẦU TIÊN RỒI LƯỚT XUỐNG VIDEO 2
         // ============================================================
-        logMsg(`🔙 Bỏ qua nút Quay lại -> Dùng history.back() để quay về trang Profile...`);
-        window.history.back();
-        await delay(2, 3);
-        // Nếu vẫn ở trang Reel (chưa về Profile), back thêm lần nữa
-        if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
-            logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần nữa...`);
-            window.history.back();
-            await delay(2, 3);
-        }
-        logMsg(`📍 Đang ở: ${window.location.href}`);
-
-        // ĐỢI TRANG PROFILE LOAD XONG
-        await delay(2, 3);
-
-        // TÌM LẠI DANH SÁCH REEL LINKS TRÊN TRANG PROFILE
-        logMsg(`🔍 Tìm lại danh sách Reel links trên trang Profile...`);
-        let reelLinks2 = [];
-        for (let findAttempt = 0; findAttempt < 4; findAttempt++) {
-            reelLinks2 = findReelLinks();
-            if (reelLinks2.length > 0) break;
-            await delay(1, 2);
-        }
-
         // --- VIDEO REELS 2 ---
         logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-        // CLICK LẠI LINK REEL ĐẦU TIÊN ĐỂ VÀO REELS PLAYER
-        if (reelLinks2.length > 0) {
-            logMsg(`🎯 Click lại link Reel đầu tiên để vào Reels Player...`);
-            const reelEl = reelLinks2[0];
-            const rr = reelEl.getBoundingClientRect();
-            if (rr.top > window.innerHeight * 0.7) {
-                window.scrollBy(0, rr.top - window.innerHeight * 0.4);
-                await delay(1, 2);
-            }
-            await safeClick(reelEl);
-        } else if (firstReelHref) {
-            logMsg(`🎯 Không tìm thấy element, dùng URL đã lưu: ${firstReelHref}`);
+        if (firstReelHref) {
+            logMsg(`🔀 Chuyển hướng thẳng đến URL Reel đầu tiên: ${firstReelHref}`);
             window.location.href = firstReelHref;
         } else {
-            logMsg(`⚠️ Không tìm lại được link Reel!`);
+            logMsg(`🔀 Không có URL, dùng history.back() rồi tìm lại...`);
+            window.history.back();
+            await delay(2, 3);
+            if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
+                window.history.back();
+                await delay(2, 3);
+            }
         }
-        await delay(3, 4);
+
+        // ĐỢI TRANG REEL LOAD XONG
+        await delay(4, 5);
+        logMsg(`📍 Đang ở: ${window.location.href}`);
 
         // LƯỚT XUỐNG ĐỂ SANG VIDEO REELS 2
         logMsg(`👇 Lướt xuống để chuyển sang Video Reels 2...`);
