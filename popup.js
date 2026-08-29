@@ -1025,112 +1025,75 @@ document.getElementById('btnSaveDeviceProfile2')?.addEventListener('click', () =
 
 
 // NÚT TEST KIỂM TRA IP PROXY THỰC TẾ
+// 🌐 NÚT TEST IP - KIỂM TRA QUA TAB WEB (TRAFFIC ĐI QUA PROXY)
 document.getElementById('btnTestProxy')?.addEventListener('click', async () => {
     const statusBox = document.getElementById('activeProxyStatus');
     const btn = document.getElementById('btnTestProxy');
     if (btn) btn.innerText = '⏳ Đang test...';
     if (statusBox) {
-        statusBox.innerText = '⏳ Đang kiểm tra IP qua proxy...';
+        statusBox.innerText = '⏳ Đang kiểm tra IP qua proxy (trong tab web)...';
         statusBox.style.background = '#fff3cd';
         statusBox.style.color = '#856404';
         statusBox.style.borderColor = '#ffc107';
     }
 
     const startTime = Date.now();
-    const testUrls = [
-        'https://api.ipify.org?format=json',
-        'https://api.my-ip.io/v2/ip.json',
-        'https://httpbin.org/ip'
-    ];
 
-    let detectedIP = null;
-    let responseTime = 0;
-    let success = false;
+    // Gọi background để inject script vào tab web -> traffic đi qua proxy
+    chrome.runtime.sendMessage({ action: 'testProxyIP' }, (response) => {
+        const responseTime = Date.now() - startTime;
+        if (btn) btn.innerText = '⚡ TEST IP';
 
-    for (const url of testUrls) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // timeout 10 giây
-            
-            const res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            responseTime = Date.now() - startTime;
-            
-            const data = await res.json();
-            detectedIP = data.ip || data.origin || null;
-            if (detectedIP) {
-                success = true;
-                break;
-            }
-        } catch(e) {
-            continue; // Thử URL tiếp theo
+        if (response && response.success && response.ip) {
+            const detectedIP = response.ip;
+            chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
+                if (st.proxyEnabled && st.proxyList && st.proxyList.length > 0) {
+                    const idx = st.proxyCurrentIndex || 0;
+                    const p = st.proxyList[idx % st.proxyList.length];
+                    if (statusBox) {
+                        statusBox.innerText = `✅ PROXY SỐNG | IP: ${detectedIP} | ${responseTime}ms`;
+                        statusBox.style.background = '#d4edda';
+                        statusBox.style.color = '#155724';
+                        statusBox.style.borderColor = '#28a745';
+                    }
+                    const speed = responseTime < 2000 ? '🟢 TỐT' : responseTime < 5000 ? '🟡 TRUNG BÌNH' : '🔴 CHẬM';
+                    alert(`✅ PROXY ĐANG HOẠT ĐỘNG!\n\n🌐 IP: ${detectedIP}\n📡 Proxy: ${p.host}:${p.port} (${p.type})\n⚡ Tốc độ: ${responseTime}ms ${speed}`);
+                } else {
+                    if (statusBox) {
+                        statusBox.innerText = `🌐 IP thật: ${detectedIP} | ${responseTime}ms`;
+                        statusBox.style.background = '#e7f3ff';
+                        statusBox.style.color = '#1877f2';
+                        statusBox.style.borderColor = '#1877f2';
+                    }
+                    alert(`🌐 IP THẬT: ${detectedIP}\n⚡ ${responseTime}ms\n\n⚠️ Chưa bật proxy.`);
+                }
+            });
+        } else {
+            const errMsg = response?.error || 'Không kết nối được';
+            chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
+                if (st.proxyEnabled && st.proxyList && st.proxyList.length > 0) {
+                    const idx = st.proxyCurrentIndex || 0;
+                    const p = st.proxyList[idx % st.proxyList.length];
+                    if (statusBox) {
+                        statusBox.innerText = `❌ PROXY CHẾT! ${p.host}:${p.port} (${responseTime}ms)`;
+                        statusBox.style.background = '#f8d7da';
+                        statusBox.style.color = '#721c24';
+                        statusBox.style.borderColor = '#dc3545';
+                    }
+                    alert(`❌ PROXY CHẾT!\n\n📡 ${p.host}:${p.port} (${p.type})\n⏱️ ${responseTime}ms\n\n${errMsg}\n\n👉 Thay proxy khác hoặc kiểm tra lại!`);
+                } else {
+                    if (statusBox) {
+                        statusBox.innerText = `❌ Lỗi: ${errMsg}`;
+                        statusBox.style.background = '#f8d7da';
+                        statusBox.style.color = '#721c24';
+                        statusBox.style.borderColor = '#dc3545';
+                    }
+                    alert(`❌ ${errMsg}`);
+                }
+            });
         }
-    }
-
-    if (btn) btn.innerText = '⚡ TEST IP';
-
-    if (success && detectedIP) {
-        // Kiểm tra xem có đang dùng proxy không
-        chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
-            let statusMsg = '';
-            let alertMsg = '';
-            
-            if (st.proxyEnabled && st.proxyList && st.proxyList.length > 0) {
-                const idx = st.proxyCurrentIndex || 0;
-                const currentProxy = st.proxyList[idx % st.proxyList.length];
-                
-                statusMsg = `✅ PROXY HOẠT ĐỘNG!\n🌐 IP: ${detectedIP}\n📡 Proxy: ${currentProxy.host}:${currentProxy.port} (${currentProxy.type})\n⚡ Tốc độ: ${responseTime}ms`;
-                alertMsg = `✅ PROXY ĐANG HOẠT ĐỘNG!\n\n🌐 IP hiện tại: ${detectedIP}\n📡 Qua proxy: ${currentProxy.host}:${currentProxy.port}\n🔌 Loại: ${currentProxy.type.toUpperCase()}\n⚡ Tốc độ phản hồi: ${responseTime}ms\n\n${responseTime < 2000 ? '🟢 Tốc độ TỐT!' : responseTime < 5000 ? '🟡 Tốc độ TRUNG BÌNH' : '🔴 Tốc độ CHẬM'}`;
-                
-                if (statusBox) {
-                    statusBox.innerText = `✅ PROXY SỐNG | IP: ${detectedIP} | ${responseTime}ms`;
-                    statusBox.style.background = '#d4edda';
-                    statusBox.style.color = '#155724';
-                    statusBox.style.borderColor = '#28a745';
-                }
-            } else {
-                statusMsg = `🌐 IP thật: ${detectedIP} | ${responseTime}ms (Không dùng proxy)`;
-                alertMsg = `🌐 IP THẬT CỦA BẠN: ${detectedIP}\n⚡ Tốc độ: ${responseTime}ms\n\n⚠️ Hiện KHÔNG bật proxy. Vào Cấu Hình để bật.`;
-                
-                if (statusBox) {
-                    statusBox.innerText = `🌐 IP thật: ${detectedIP} | ${responseTime}ms (Không proxy)`;
-                    statusBox.style.background = '#e7f3ff';
-                    statusBox.style.color = '#1877f2';
-                    statusBox.style.borderColor = '#1877f2';
-                }
-            }
-            
-            alert(alertMsg);
-        });
-    } else {
-        // Proxy chết hoặc không kết nối được
-        responseTime = Date.now() - startTime;
-        
-        chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
-            if (st.proxyEnabled && st.proxyList && st.proxyList.length > 0) {
-                const idx = st.proxyCurrentIndex || 0;
-                const currentProxy = st.proxyList[idx % st.proxyList.length];
-                
-                if (statusBox) {
-                    statusBox.innerText = `❌ PROXY CHẾT! ${currentProxy.host}:${currentProxy.port} không phản hồi (${responseTime}ms)`;
-                    statusBox.style.background = '#f8d7da';
-                    statusBox.style.color = '#721c24';
-                    statusBox.style.borderColor = '#dc3545';
-                }
-                alert(`❌ PROXY CHẾT!\n\n📡 Proxy: ${currentProxy.host}:${currentProxy.port}\n🔌 Loại: ${currentProxy.type.toUpperCase()}\n⏱️ Timeout sau: ${responseTime}ms\n\n👉 Proxy này không hoạt động. Hãy thay proxy khác hoặc kiểm tra lại thông tin!`);
-            } else {
-                if (statusBox) {
-                    statusBox.innerText = '❌ Không thể kết nối internet!';
-                    statusBox.style.background = '#f8d7da';
-                    statusBox.style.color = '#721c24';
-                    statusBox.style.borderColor = '#dc3545';
-                }
-                alert('❌ Không thể kết nối internet! Kiểm tra lại mạng.');
-            }
-        });
-    }
+    });
 });
-
 
 // ==========================================
 // GOOGLE GEMINI AI REAL INTEGRATION

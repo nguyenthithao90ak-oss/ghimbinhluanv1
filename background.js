@@ -564,6 +564,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
     }
 
+    // 🌐 TEST IP QUA PROXY - inject vào tab web để traffic đi qua proxy
+    if (request.action === "testProxyIP") {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const tab = tabs?.[0];
+            if (!tab || !tab.id || tab.url?.startsWith('chrome://')) {
+                sendResponse({ success: false, error: "Mở 1 tab web (facebook.com) trước rồi test lại!" });
+                return;
+            }
+            chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: async () => {
+                    try {
+                        const controller = new AbortController();
+                        setTimeout(() => controller.abort(), 12000);
+                        const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+                        const data = await res.json();
+                        return { ip: data.ip };
+                    } catch(e) {
+                        try {
+                            const res2 = await fetch('https://httpbin.org/ip', { signal: AbortSignal.timeout(12000) });
+                            const data2 = await res2.json();
+                            return { ip: data2.origin };
+                        } catch(e2) {
+                            return { error: e2.message };
+                        }
+                    }
+                }
+            }).then(results => {
+                const result = results?.[0]?.result;
+                if (result?.ip) {
+                    sendResponse({ success: true, ip: result.ip });
+                } else {
+                    sendResponse({ success: false, error: result?.error || "Không lấy được IP" });
+                }
+            }).catch(err => {
+                sendResponse({ success: false, error: err.message });
+            });
+        });
+        return true; // Giữ sendResponse async
+    }
+
 
 
     if (request.action === "stopBotProcess") {
