@@ -1146,6 +1146,10 @@ async function runChecking(pageConfigs, targetPageName) {
         await delay(watchSecs1);
         await humanScrollJitter();
 
+        // LƯU URL REEL ĐẦU TIÊN ĐỂ DÙNG LẠI
+        const firstReelHref = (firstEl.tagName === 'A' && firstEl.href) ? firstEl.href : null;
+        logMsg(`📌 URL Reel đầu tiên: ${firstReelHref || '(không có href, sẽ click lại element)'}`);
+
         const res1 = await processSingleReel(cfg, targetPageName, 1);
         let statusV1 = "";
         if (res1 === "ALREADY_EXISTS") {
@@ -1159,13 +1163,66 @@ async function runChecking(pageConfigs, targetPageName) {
             logMsg(`⚠️ Video Reels 1: Thao tác không thành công.`);
         }
 
-        // BẤM QUAY LẠI ĐÓNG BẢNG BÌNH LUẬN VIDEO 1
-        await closeCommentsModal();
-        await delay(1, 2);
+        // ============================================================
+        // 🔙 QUAY VỀ TRANG PROFILE (BỎ QUA NÚT QUAY LẠI - KHÔNG HOẠT ĐỘNG)
+        // ============================================================
+        logMsg(`🔙 Bỏ qua nút Quay lại -> Dùng history.back() để quay về trang Profile...`);
+        window.history.back();
+        await delay(2, 3);
+        // Nếu vẫn ở trang Reel (chưa về Profile), back thêm lần nữa
+        if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
+            logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần nữa...`);
+            window.history.back();
+            await delay(2, 3);
+        }
+        logMsg(`📍 Đang ở: ${window.location.href}`);
+
+        // ĐỢI TRANG PROFILE LOAD XONG
+        await delay(2, 3);
+
+        // TÌM LẠI DANH SÁCH REEL LINKS TRÊN TRANG PROFILE
+        logMsg(`🔍 Tìm lại danh sách Reel links trên trang Profile...`);
+        let reelLinks2 = [];
+        for (let findAttempt = 0; findAttempt < 4; findAttempt++) {
+            reelLinks2 = findReelLinks();
+            if (reelLinks2.length > 0) break;
+            await delay(1, 2);
+        }
 
         // --- VIDEO REELS 2 ---
         logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        await switchToNextReel(2, reelLinks);
+
+        // CLICK LẠI LINK REEL ĐẦU TIÊN ĐỂ VÀO REELS PLAYER
+        if (reelLinks2.length > 0) {
+            logMsg(`🎯 Click lại link Reel đầu tiên để vào Reels Player...`);
+            const reelEl = reelLinks2[0];
+            const rr = reelEl.getBoundingClientRect();
+            if (rr.top > window.innerHeight * 0.7) {
+                window.scrollBy(0, rr.top - window.innerHeight * 0.4);
+                await delay(1, 2);
+            }
+            await safeClick(reelEl);
+        } else if (firstReelHref) {
+            logMsg(`🎯 Không tìm thấy element, dùng URL đã lưu: ${firstReelHref}`);
+            window.location.href = firstReelHref;
+        } else {
+            logMsg(`⚠️ Không tìm lại được link Reel!`);
+        }
+        await delay(3, 4);
+
+        // LƯỚT XUỐNG ĐỂ SANG VIDEO REELS 2
+        logMsg(`👇 Lướt xuống để chuyển sang Video Reels 2...`);
+        window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+        await delay(1, 1);
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }));
+        window.dispatchEvent(new WheelEvent('wheel', { deltaY: window.innerHeight, bubbles: true }));
+        await delay(2, 3);
+
+        // GIẢ LẬP XEM VIDEO 2 TỰ NHIÊN
+        const watchSecs2 = Math.floor(Math.random() * 5) + 3;
+        logMsg(`🎬 Giả lập xem Video Reels 2 tự nhiên (${watchSecs2} giây)...`);
+        await delay(watchSecs2);
+        await humanScrollJitter();
 
         const res2 = await processSingleReel(cfg, targetPageName, 2);
         let statusV2 = "";
@@ -1179,10 +1236,6 @@ async function runChecking(pageConfigs, targetPageName) {
             statusV2 = "V2: Thao tác lỗi";
             logMsg(`⚠️ Video Reels 2: Thao tác không thành công.`);
         }
-
-        // BẤM QUAY LẠI ĐÓNG BẢNG BÌNH LUẬN VIDEO 2
-        await closeCommentsModal();
-        await delay(1, 2);
 
         // ==========================================
         // 🎉 TỔNG KẾT VÀ CHUYỂN NICK TIẾP THEO
