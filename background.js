@@ -150,6 +150,20 @@ function applyProxyFromStorage() {
     return;
 }
 
+// 🔄 RESET TRẠNG THÁI KHI CHROME KHỞI ĐỘNG LẠI (TẮT PC / ĐÓNG CHROME)
+// Khi Chrome mở lại, bot chắc chắn không còn chạy -> reset về trạng thái dừng
+chrome.runtime.onStartup.addListener(() => {
+    console.log('🔄 Chrome khởi động lại -> Reset trạng thái bot về DỪNG.');
+    chrome.storage.local.set({
+        isBotRunning: false,
+        isScheduleWaiting: false,
+        step: "STOPPED"
+    });
+    chrome.alarms.clearAll(() => {
+        chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
+    });
+});
+
 // ĐĂNG KÝ ALARM TELEGRAM POLL (thay setInterval để không bị Chrome sleep)
 chrome.alarms.get('telegramPoll', (existing) => {
     if (!existing) {
