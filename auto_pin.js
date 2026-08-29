@@ -1,6 +1,6 @@
 
 // --------------------------------------------------------------------------------------
-// 📱 GIẢ LẬP THIẾT BỊ DI ĐỘNG TOÀN DIỆN - ĐỌC TỪ STORAGE (DYNAMIC DEVICE EMULATION)
+// 📱 GIẢ LẬP THIẾT BỊ DI ĐỘNG - INJECT VÀO MAIN WORLD (Facebook JS đọc được)
 // --------------------------------------------------------------------------------------
 const DEVICE_DB_CONTENT = {
     'samsung_s24': {
@@ -25,7 +25,7 @@ const DEVICE_DB_CONTENT = {
         model: 'iPhone15,3',
         platformVer: '17.5.1',
         arch: 'arm64', bitness: '64',
-        brands: [{brand:"Safari",version:"17"},{brand:"Not/A)Brand",version:"8"}],
+        brands: [],
         vendor: 'Apple Computer, Inc.',
         maxTouch: 5,
         deviceMemory: 6,
@@ -39,7 +39,7 @@ const DEVICE_DB_CONTENT = {
         model: 'iPhone16,2',
         platformVer: '17.5.1',
         arch: 'arm64', bitness: '64',
-        brands: [{brand:"Safari",version:"17"},{brand:"Not/A)Brand",version:"8"}],
+        brands: [],
         vendor: 'Apple Computer, Inc.',
         maxTouch: 5,
         deviceMemory: 8,
@@ -75,59 +75,53 @@ const DEVICE_DB_CONTENT = {
     }
 };
 
-(async function emulateMobileDevice() {
+// Đọc profile từ storage (isolated world) → inject vào MAIN world
+(async function() {
     try {
-        // Đọc device profile đã chọn từ storage
         const storageData = await new Promise(resolve => {
             chrome.storage.local.get(['deviceProfileKey'], resolve);
         });
         const key = storageData.deviceProfileKey || 'samsung_s24';
         const dev = DEVICE_DB_CONTENT[key] || DEVICE_DB_CONTENT['samsung_s24'];
 
-        // Ghi đè navigator.userAgent & platform ĐÚNG THEO THIẾT BỊ ĐÃ CHỌN
-        try { Object.defineProperty(navigator, 'userAgent', { get: () => dev.ua, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'appVersion', { get: () => dev.appVer, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'platform', { get: () => dev.platform, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => dev.maxTouch, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'vendor', { get: () => dev.vendor, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'deviceMemory', { get: () => dev.deviceMemory, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => dev.hardwareConcurrency, configurable: true }); } catch (e) {}
-
-        // Ghi đè navigator.userAgentData (Client Hints trong Javascript)
-        if (navigator.userAgentData || dev.uadPlatform === 'Android') {
-            try {
-                Object.defineProperty(navigator, 'userAgentData', {
-                    get: () => ({
-                        brands: dev.brands,
+        // Tạo script inject vào MAIN WORLD
+        const script = document.createElement('script');
+        script.textContent = `(function(){
+            var d = ${JSON.stringify(dev)};
+            try { Object.defineProperty(navigator, 'userAgent', { get: function(){ return d.ua; }, configurable: true }); } catch(e){}
+            try { Object.defineProperty(navigator, 'appVersion', { get: function(){ return d.appVer; }, configurable: true }); } catch(e){}
+            try { Object.defineProperty(navigator, 'platform', { get: function(){ return d.platform; }, configurable: true }); } catch(e){}
+            try { Object.defineProperty(navigator, 'maxTouchPoints', { get: function(){ return d.maxTouch; }, configurable: true }); } catch(e){}
+            try { Object.defineProperty(navigator, 'vendor', { get: function(){ return d.vendor; }, configurable: true }); } catch(e){}
+            try { Object.defineProperty(navigator, 'deviceMemory', { get: function(){ return d.deviceMemory; }, configurable: true }); } catch(e){}
+            try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: function(){ return d.hardwareConcurrency; }, configurable: true }); } catch(e){}
+            ${dev.uadPlatform === 'iOS' ? `
+                try { Object.defineProperty(navigator, 'userAgentData', { get: function(){ return undefined; }, configurable: true }); } catch(e){}
+            ` : `
+                try { Object.defineProperty(navigator, 'userAgentData', {
+                    get: function(){ return {
+                        brands: d.brands,
                         mobile: true,
-                        platform: dev.uadPlatform,
-                        getHighEntropyValues: async () => ({
-                            architecture: dev.arch,
-                            bitness: dev.bitness,
-                            model: dev.model,
-                            platform: dev.uadPlatform,
-                            platformVersion: dev.platformVer,
+                        platform: d.uadPlatform,
+                        getHighEntropyValues: function(){ return Promise.resolve({
+                            architecture: d.arch, bitness: d.bitness, model: d.model,
+                            platform: d.uadPlatform, platformVersion: d.platformVer,
                             uaFullVersion: "128.0.6613.88"
-                        })
-                    }),
+                        }); }
+                    }; },
                     configurable: true
-                });
-            } catch (e) {}
-        }
-
-        // iPhone Safari không có userAgentData -> xóa nó
-        if (dev.uadPlatform === 'iOS') {
-            try {
-                Object.defineProperty(navigator, 'userAgentData', {
-                    get: () => undefined,
-                    configurable: true
-                });
-            } catch (e) {}
-        }
-
-        console.log(`📱 [DEVICE] Giả lập: ${key} | Platform: ${dev.platform} | Model: ${dev.model}`);
-    } catch (err) {
-        console.error('Lỗi giả lập thiết bị:', err);
+                }); } catch(e){}
+            `}
+            console.log('📱 [MAIN WORLD] Device: ' + d.platform + ' | ' + d.model);
+        })();`;
+        
+        // Inject TRƯỚC KHI trang load → Facebook nhận đúng
+        (document.head || document.documentElement).prepend(script);
+        script.remove(); // Dọn sạch
+        
+        console.log('📱 [DEVICE] Injected: ' + key + ' → ' + dev.platform);
+    } catch(err) {
+        console.error('Lỗi inject device:', err);
     }
 })();
 
