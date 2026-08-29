@@ -604,7 +604,6 @@ loadProxySettings();
 
 // KHÔI PHỤC CẤU HÌNH KHI MỞ TAB
 document.getElementById('tabConfigBtn').addEventListener('click', () => {
-    loadTeleConfig();
     loadProxySettings();
 });
 
