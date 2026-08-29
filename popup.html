@@ -35,7 +35,7 @@
     <div class="tabs">
         <button class="tab-btn active" id="tabRunBtn">⚡ CHẠY AUTO</button>
         <button class="tab-btn" id="tabConfigBtn">⚙️ CẤU HÌNH</button>
-        <button class="tab-btn" id="tabHistoryBtn">📊 LỊCH SỬ &amp; BACKUP</button>
+        <button class="tab-btn" id="tabHistoryBtn" style="display:none;">📊 LỊCH SỬ &amp; BACKUP</button>
     </div>
 
     <!-- TAB 1: CHẠY AUTO & LOG GIÁM SÁT -->
@@ -250,6 +250,15 @@
             <button id="btnSaveTele" style="width:100%; padding:6px; background:#28a745; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">💾 LƯU CẤU HÌNH TELEGRAM</button>
         </div>
 
+        <!-- 💾 SAO LƯU / KHÔI PHỤC DỮ LIỆU (CHUYỂN TỪ TAB LỊCH SỬ SANG CẤU HÌNH) -->
+        <div class="card" style="margin-top: 10px;">
+            <h4 style="margin: 0 0 6px 0; color: #1877f2;">💾 Sao Lưu / Khôi Phục Dữ Liệu</h4>
+            <div style="display: flex; gap: 5px;">
+                <button id="btnExportBackup" style="flex:1; padding:6px; background:#007bff; color:white; border:none; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;">📥 XUẤT BACKUP JSON</button>
+                <button id="btnImportBackup" style="flex:1; padding:6px; background:#28a745; color:white; border:none; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;">📤 NHẬP RESTORE JSON</button>
+                <input type="file" id="fileBackupInput" accept=".json" style="display: none;">
+            </div>
+        </div>
 
         <!-- 🌐 PROXY LIST (ẨN - DÙNG SWITCHYOMEGA THAY THẾ) -->
         <div class="card" style="display:none; margin-top: 10px;">
@@ -276,7 +285,7 @@
         </div>
     </div>
 
-    <!-- TAB 3: LỊCH SỬ CHẠY & BẢO VỆ DỮ LIỆU -->
+    <!-- TAB 3: LỊCH SỬ (ẨN - ĐÃ CHUYỂN BACKUP SANG CẤU HÌNH) -->
     <div id="sectionHistory" style="display: none;">
         <div class="card">
             <h4 style="margin: 0 0 6px 0; color: #1877f2;">💾 Sao Lưu / Phục Hồi Dữ Liệu</h4>
