@@ -555,7 +555,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // ✅ HỦY WATCHDOG ngay khi nick hoàn thành bình thường
             chrome.alarms.clear('nickSessionTimeout');
 
-            if (request.alreadyExisted) {
+            if (request.summaryStatus) {
+                const statusTitle = request.summaryStatus;
+                const details = request.summaryDetails || "Đã kiểm tra 2 Video Reels";
+                addLog(`📌 Page "${pName}": ${statusTitle} [${details}]`);
+                addHistoryRecord(pName, statusTitle, details);
+            } else if (request.alreadyExisted) {
                 addLog(`ℹ️ Page "${pName}": ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo!`);
                 addHistoryRecord(pName, "ℹ️ Đã có ghim sẵn", "Quét thấy Tên Nick + Nội dung mẫu đã có sẵn trên video");
             } else if (request.newlyPosted) {

@@ -428,9 +428,10 @@ async function autoLikeOwnPinnedComment() {
     }
 }
 
-async function processSingleReel(cfg, targetPageName) {
+async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
     // 3. BẤM NÚT BÌNH LUẬN (SELECTOR MULTI-LAYER THÔNG MINH)
     await delay(1, 3);
+    logMsg(`💬 Đang mở ô bình luận cho Video Reels ${videoIndex}...`);
     const cmtOk = await retryFindAndClick(
         () => {
             // Lớp 1: Element hiển thị thực tế có aria-label / title chứa 'bình luận' hoặc 'comment'
@@ -676,12 +677,12 @@ async function processSingleReel(cfg, targetPageName) {
     }
 
     if (isAlreadyDone) {
-        logMsg(`ℹ️ PHÁT HIỆN VIDEO NÀY ĐÃ CÓ BÀI ĐĂNG & GHIM SẴN! (Chuyển sang Page tiếp theo...)`);
+        logMsg(`ℹ️ PHÁT HIỆN VIDEO REELS ${videoIndex} ĐÃ CÓ BÀI ĐĂNG / GHIM SẴN!`);
         return "ALREADY_EXISTS";
     }
 
     // CHƯA GHIM -> ĐĂNG & GHIM
-    logMsg(`⚠️ CHƯA GHIM -> Đăng nội dung & Ghim...`);
+    logMsg(`⚠️ VIDEO REELS ${videoIndex} CHƯA CÓ BÌNH LUẬN -> Bắt đầu đăng nội dung...`);
     if (!cfg) {
         logMsg(`⚠️ Chưa cài Mẫu.`);
         return false;
@@ -979,6 +980,63 @@ function getFacebookProfileNameStrict() {
     return "";
 }
 
+// =================== TIỆN ÍCH ĐIỀU HƯỚNG 2 VIDEO REELS ===================
+async function closeCommentsModal() {
+    logMsg("🔙 Bấm nút 'Quay lại' để đóng bảng bình luận...");
+    for (let i = 0; i < 3; i++) {
+        const backBtn = Array.from(document.querySelectorAll('div[role="button"], button, a, div, span, i, svg')).find(el => {
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0 || r.top > 80 || r.left > 80) return false;
+            const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+            const title = (el.getAttribute('title') || '').toLowerCase();
+            const txt = (el.innerText || '').trim();
+            return aria === 'quay lại' || aria === 'back' || aria.includes('quay lại') || aria.includes('đóng') ||
+                   title === 'quay lại' || title === 'back' || txt === '<' || txt === '‹' || el.classList.contains('m');
+        });
+
+        if (backBtn) {
+            backBtn.click();
+            logMsg("✅ Đã bấm nút 'Quay lại'!");
+            await delay(1, 2);
+            return true;
+        }
+        await delay(1, 1);
+    }
+    // Fallback nếu không tìm thấy nút
+    window.history.back();
+    await delay(1, 2);
+    return true;
+}
+
+async function switchToNextReel(targetReelNum, reelLinks) {
+    logMsg(`👇 Đang lướt/chuyển sang Video Reels ${targetReelNum}...`);
+    
+    // 1. Thao tác lướt xuống trong Reels Player
+    window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }));
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: window.innerHeight, bubbles: true }));
+    await delay(2, 3);
+
+    // 2. Nếu đang ở màn hình lưới Reels và có link video thứ 2
+    if (reelLinks && reelLinks.length >= targetReelNum) {
+        const nextEl = reelLinks[targetReelNum - 1];
+        if (nextEl) {
+            const r = nextEl.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) {
+                logMsg(`🎯 Bấm trực tiếp vào Video Reels ${targetReelNum} từ danh sách...`);
+                await safeClick(nextEl);
+                await delay(2, 3);
+            }
+        }
+    }
+
+    // 3. Giả lập xem video tự nhiên
+    const watchSecs = Math.floor(Math.random() * 5) + 3;
+    logMsg(`🎬 Giả lập xem Video Reels ${targetReelNum} tự nhiên (${watchSecs} giây)...`);
+    await delay(watchSecs);
+    await humanScrollJitter();
+}
+
 async function runChecking(pageConfigs, targetPageName) {
     try {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
@@ -990,40 +1048,51 @@ async function runChecking(pageConfigs, targetPageName) {
         
         logMsg(`✅ Bỏ qua kiểm tra tên Nick. Giả định ĐÚNG NICK "${targetPageName}"! Vào Reels luôn...`);
 
-        // 1. BẤM TAB REELS
+        // 1. BẤM TAB REELS TRÊN TRANG CÁ NHÂN (KHÔNG BẤM WATCH TRANG CHỦ)
         await delay(1, 3);
+        function findProfileReelsTab() {
+            const elements = Array.from(document.querySelectorAll('a, div[role="tab"], div[role="button"], span, div')).filter(el => {
+                const r = el.getBoundingClientRect();
+                if (r.top < 70 || r.top > window.innerHeight || r.width === 0 || r.height === 0) return false;
+                const txt = (el.innerText || '').trim();
+                const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                const href = (el.getAttribute('href') || '').toLowerCase();
+                return /^Reels$/i.test(txt) || aria === 'reels' || aria === 'tab reels' || aria.includes('xem reels') || href.includes('sk=reels') || href.includes('/reels');
+            });
+            if (elements.length > 0) {
+                const tabEl = elements.find(e => e.tagName === 'A' || e.getAttribute('role') === 'tab');
+                return tabEl || elements[0];
+            }
+            return null;
+        }
+
         const reelsOk = await retryFindAndClick(
-            () => findClickableElement(['Reels', 'Video', 'Watch']),
-            'Tab Reels', 3, 2
+            findProfileReelsTab,
+            'Tab Reels trên Trang Cá Nhân', 4, 2
         );
         if (!reelsOk) {
             safeSendMessage({ action: "pageCompleted" });
             return;
         }
 
-        // 2. LẤY DANH SÁCH VIDEO REELS ĐẦU TIÊN ĐỂ XỬ LÝ
+        // 2. LẤY DANH SÁCH VIDEO REELS ĐỂ XỬ LÝ
         await delay(2, 4);
         logMsg("🔍 Đang lấy danh sách Video Reels...");
 
-        // Hàm tìm vị trí Y của tab Reels để biết lưới video bắt đầu từ đâu
         function getReelsGridTopY() {
-            // Tìm tab "Reels" đang active
             const tabs = Array.from(document.querySelectorAll('a, div, span')).filter(el => {
                 const txt = (el.innerText || '').trim();
-                return /^Reels$/i.test(txt) || /^Video$/i.test(txt);
+                return /^Reels$/i.test(txt);
             });
             if (tabs.length > 0) {
                 const r = tabs[0].getBoundingClientRect();
-                return r.bottom + 20; // Lưới video nằm dưới tab bar
+                return r.bottom + 20;
             }
-            return 400; // Mặc định nếu không tìm thấy tab
+            return 350;
         }
 
-        // Hàm lọc chỉ lấy link/ảnh nằm trong lưới Reels (dưới tab bar, không phải ảnh bìa)
         function findReelLinks() {
             const minY = getReelsGridTopY();
-            
-            // Ưu tiên 1: Link có href chứa /reel/ hoặc /video/ NẰM DƯỚI TAB REELS
             let links = Array.from(document.querySelectorAll('a')).filter(a => {
                 const r = a.getBoundingClientRect();
                 return (a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/'))
@@ -1031,15 +1100,12 @@ async function runChecking(pageConfigs, targetPageName) {
             });
             if (links.length > 0) return links;
 
-            // Ưu tiên 2: Ảnh thumbnail trong lưới Reels (kích thước vừa phải, KHÔNG phải ảnh bìa khổng lồ)
             let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
                 const r = img.getBoundingClientRect();
-                // Thumbnail Reels: nằm dưới tab, kích thước 100-300px, KHÔNG phải ảnh bìa (>400px chiều ngang)
                 return r.top >= minY && r.width > 80 && r.width < 400 && r.height > 100 && r.height < 400;
             });
             if (imgs.length > 0) return imgs;
 
-            // Ưu tiên 3: Bất kỳ link video nào trên trang (không lọc vị trí)
             links = Array.from(document.querySelectorAll('a')).filter(a =>
                 a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/')
             );
@@ -1058,10 +1124,15 @@ async function runChecking(pageConfigs, targetPageName) {
             return;
         }
 
-        // CHỈ XỬ LÝ ĐÚNG 1 VIDEO ĐẦU TIÊN
-        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels, tiến hành làm ĐÚNG 1 VIDEO ĐẦU TIÊN cho Page "${targetPageName}"...`);
+        let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;
 
-        // Scroll xuống một chút để đảm bảo video đầu tiên nằm trong viewport
+        // ==========================================
+        // 🎬 TIẾN TRÌNH XỬ LÝ 2 VIDEO REELS
+        // ==========================================
+        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels -> Bắt đầu quy trình xử lý 2 VIDEO REELS cho "${targetPageName}"...`);
+
+        // --- VIDEO REELS 1 ---
+        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [1/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 1 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
         const firstEl = reelLinks[0];
         const firstRect = firstEl.getBoundingClientRect();
         if (firstRect.top > window.innerHeight * 0.7) {
@@ -1069,29 +1140,79 @@ async function runChecking(pageConfigs, targetPageName) {
             await delay(1, 2);
         }
 
-        // Click video đầu tiên
         await safeClick(firstEl);
-        // 🎬 TÍNH NĂNG 1: GIẢ LẬP XEM VIDEO TỰ NHIÊN (RANDOM 4 - 10 GIÂY)
-        const watchSecs = Math.floor(Math.random() * 7) + 4;
-        logMsg("🎬 Giả lập người thật: Đang dừng xem Video Reels tự nhiên (" + watchSecs + " giây)...");
-        await delay(watchSecs);
+        const watchSecs1 = Math.floor(Math.random() * 5) + 4;
+        logMsg("🎬 Giả lập xem Video Reels 1 tự nhiên (" + watchSecs1 + " giây)...");
+        await delay(watchSecs1);
         await humanScrollJitter();
 
-        // Gọi hàm xử lý 1 video
-        let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;
-        const resSingle = await processSingleReel(cfg, targetPageName);
-
-        if (resSingle === "ALREADY_EXISTS") {
-            logMsg(`ℹ️ Đã có bài đăng/ghim sẵn trên video này! Chuẩn bị chuyển Page tiếp theo...`);
-            safeSendMessage({ action: "pageCompleted", alreadyExisted: true });
-        } else if (resSingle === "LAGGED") {
-            logMsg(`⚠️ Nick bị lag bình luận. Đã gửi thông báo accountLagged, không gửi pageCompleted trùng lặp.`);
-        } else if (resSingle === true) {
-            logMsg(`✅ Đã đăng bài mới & ghim thành công cho Page này! Chuẩn bị chuyển Page tiếp theo...`);
-            safeSendMessage({ action: "pageCompleted", newlyPosted: true });
+        const res1 = await processSingleReel(cfg, targetPageName, 1);
+        let statusV1 = "";
+        if (res1 === "ALREADY_EXISTS") {
+            statusV1 = "V1: Đã ghim sẵn từ trước";
+            logMsg(`ℹ️ Video Reels 1: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
+        } else if (res1 === true || res1 === "POSTED") {
+            statusV1 = "V1: Đã đăng mới & ghim";
+            logMsg(`✅ Video Reels 1: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
         } else {
-            logMsg(`⚠️ Không thể hoàn tất ghim bài này. Chuẩn bị chuyển Page tiếp theo...`);
-            safeSendMessage({ action: "pageCompleted", failed: true });
+            statusV1 = "V1: Thao tác lỗi";
+            logMsg(`⚠️ Video Reels 1: Thao tác không thành công.`);
+        }
+
+        // BẤM QUAY LẠI ĐÓNG BẢNG BÌNH LUẬN VIDEO 1
+        await closeCommentsModal();
+        await delay(1, 2);
+
+        // --- VIDEO REELS 2 ---
+        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        await switchToNextReel(2, reelLinks);
+
+        const res2 = await processSingleReel(cfg, targetPageName, 2);
+        let statusV2 = "";
+        if (res2 === "ALREADY_EXISTS") {
+            statusV2 = "V2: Đã ghim sẵn từ trước";
+            logMsg(`ℹ️ Video Reels 2: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
+        } else if (res2 === true || res2 === "POSTED") {
+            statusV2 = "V2: Đã đăng mới & ghim";
+            logMsg(`✅ Video Reels 2: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
+        } else {
+            statusV2 = "V2: Thao tác lỗi";
+            logMsg(`⚠️ Video Reels 2: Thao tác không thành công.`);
+        }
+
+        // BẤM QUAY LẠI ĐÓNG BẢNG BÌNH LUẬN VIDEO 2
+        await closeCommentsModal();
+        await delay(1, 2);
+
+        // ==========================================
+        // 🎉 TỔNG KẾT VÀ CHUYỂN NICK TIẾP THEO
+        // ==========================================
+        logMsg(`\n🎉 HOÀN TẤT 2 VIDEO CHO "${targetPageName}": [${statusV1}] | [${statusV2}]`);
+        
+        const bothAlready = (res1 === "ALREADY_EXISTS" && res2 === "ALREADY_EXISTS");
+        const anyPosted = (res1 === true || res1 === "POSTED" || res2 === true || res2 === "POSTED");
+
+        if (bothAlready) {
+            safeSendMessage({ 
+                action: "pageCompleted", 
+                alreadyExisted: true,
+                summaryStatus: "ℹ️ Cả 2 Reels đã ghim sẵn",
+                summaryDetails: `${statusV1} | ${statusV2}`
+            });
+        } else if (anyPosted) {
+            safeSendMessage({ 
+                action: "pageCompleted", 
+                newlyPosted: true,
+                summaryStatus: "✅ Hoàn tất 2 Reels",
+                summaryDetails: `${statusV1} | ${statusV2}`
+            });
+        } else {
+            safeSendMessage({ 
+                action: "pageCompleted", 
+                failed: true,
+                summaryStatus: "⚠️ Xong 2 Reels (có lỗi)",
+                summaryDetails: `${statusV1} | ${statusV2}`
+            });
         }
 
     } catch (e) {
