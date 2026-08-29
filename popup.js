@@ -525,47 +525,80 @@ document.getElementById('btnSaveTele').addEventListener('click', () => {
 });
 
 // LƯU CẤU HÌNH PROXY
-document.getElementById('btnSaveProxy').addEventListener('click', () => {
-    const enabled = document.getElementById('proxyEnable').checked;
-    const host = document.getElementById('proxyHost').value.trim();
-    const port = parseInt(document.getElementById('proxyPort').value.trim()) || 49064;
-    const username = document.getElementById('proxyUser').value.trim();
-    const password = document.getElementById('proxyPass').value.trim();
-
+// === PROXY LIST - LUU VA LOAD ===
+document.getElementById('btnSaveProxyList')?.addEventListener('click', () => {
+    const enabled = document.getElementById('proxyEnableNew')?.checked || false;
+    const listText = document.getElementById('proxyListText')?.value || '';
+    
+    // Parse proxy list
+    const lines = listText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const proxyList = lines.map(line => {
+        const parts = line.split(':');
+        return {
+            host: parts[0] || '',
+            port: parseInt(parts[1]) || 0,
+            user: parts[2] || '',
+            pass: parts[3] || '',
+            type: (parts[4] || 'http').toLowerCase()
+        };
+    }).filter(p => p.host && p.port);
+    
     chrome.storage.local.set({
-        proxyEnable: enabled,
-        proxyHost: host,
-        proxyPort: port,
-        proxyUser: username,
-        proxyPass: password
+        proxyEnabled: enabled,
+        proxyList: proxyList,
+        proxyListText: listText,
+        proxyCurrentIndex: 0
     }, () => {
-        safeRuntimeSendMessage({ action: "updateProxySettings" });
-        alert(enabled ? `✅ ĐÃ BẬT PROXY (${host}:${port})!` : '🛑 ĐÃ TẮT PROXY (DÙNG MẠNG GỐC WI-FI)!');
+        if (enabled && proxyList.length > 0) {
+            chrome.runtime.sendMessage({ action: 'applyProxy', proxyIndex: 0 });
+            alert('\u2705 Da luu ' + proxyList.length + ' proxy va kich hoat!');
+        } else if (!enabled) {
+            chrome.runtime.sendMessage({ action: 'clearProxy' });
+            alert('\u2705 Da tat proxy!');
+        } else {
+            alert('\u26a0\ufe0f Danh sach proxy trong!');
+        }
+        updateProxyStatusUI();
     });
 });
 
-function loadTeleConfig() {
-    chrome.storage.local.get(['teleBotToken', 'teleChatId'], (st) => {
-        if (st.teleBotToken) document.getElementById('teleBotToken').value = st.teleBotToken;
-        if (st.teleChatId) document.getElementById('teleChatId').value = st.teleChatId;
+// Load proxy settings
+function loadProxySettings() {
+    chrome.storage.local.get(['proxyEnabled', 'proxyListText', 'proxyCurrentIndex', 'proxyList'], (st) => {
+        const chk = document.getElementById('proxyEnableNew');
+        const txt = document.getElementById('proxyListText');
+        if (chk) chk.checked = st.proxyEnabled || false;
+        if (txt) txt.value = st.proxyListText || '';
+        updateProxyStatusUI();
     });
 }
 
-function loadProxyConfig() {
-    chrome.storage.local.get(['proxyEnable', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
-        const enabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
-        document.getElementById('proxyEnable').checked = enabled;
-        document.getElementById('proxyHost').value = st.proxyHost || "103.162.30.61";
-        document.getElementById('proxyPort').value = st.proxyPort || 49064;
-        document.getElementById('proxyUser').value = st.proxyUser || "user49064";
-        document.getElementById('proxyPass').value = st.proxyPass || "Gd6O4RL1gK";
+function updateProxyStatusUI() {
+    chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
+        const el = document.getElementById('activeProxyStatus');
+        if (!el) return;
+        if (st.proxyEnabled && st.proxyList && st.proxyList.length > 0) {
+            const idx = st.proxyCurrentIndex || 0;
+            const current = st.proxyList[idx % st.proxyList.length];
+            el.innerText = '\ud83d\udfe2 Proxy ' + (idx + 1) + '/' + st.proxyList.length + ': ' + current.host + ':' + current.port + ' (' + current.type + ')';
+            el.style.background = '#d4edda';
+            el.style.color = '#155724';
+            el.style.borderColor = '#28a745';
+        } else {
+            el.innerText = '\ud83d\udd34 Proxy TAT';
+            el.style.background = '#f8d7da';
+            el.style.color = '#721c24';
+            el.style.borderColor = '#dc3545';
+        }
     });
 }
+
+loadProxySettings();
 
 // KHÔI PHỤC CẤU HÌNH KHI MỞ TAB
 document.getElementById('tabConfigBtn').addEventListener('click', () => {
     loadTeleConfig();
-    loadProxyConfig();
+    loadProxySettings();
 });
 
 // Hàm nén ảnh tự động trước khi lưu
@@ -934,22 +967,7 @@ updateStartButtonUI();
 
 // BẢNG TRẠNG THÁI PROXY AUTO
 function updateProxyDisplay() {
-    chrome.storage.local.get(['activeProxy'], (res) => {
-        const el = document.getElementById('activeProxyStatus');
-        if (el) {
-            if (res.activeProxy) {
-                el.innerText = 'Đang dùng Proxy: ' + res.activeProxy;
-                el.style.color = '#fff';
-                el.style.background = '#28a745';
-                el.style.borderColor = '#28a745';
-            } else {
-                el.innerText = 'Đang dùng mạng gốc (Wi-Fi)';
-                el.style.color = '#1877f2';
-                el.style.background = '#e7f3ff';
-                el.style.borderColor = '#1877f2';
-            }
-        }
-    });
+    updateProxyStatusUI();
 }
 setInterval(updateProxyDisplay, 1000);
 updateProxyDisplay();
@@ -1003,36 +1021,14 @@ document.getElementById('btnSaveDeviceProfile2')?.addEventListener('click', () =
 // NÚT TEST KIỂM TRA IP PROXY THỰC TẾ
 document.getElementById('btnTestProxy')?.addEventListener('click', async () => {
     const statusBox = document.getElementById('activeProxyStatus');
-    if (statusBox) {
-        statusBox.innerText = '⏳ Đang kiểm tra kết nối IP thực tế...';
-        statusBox.style.background = '#fff3cd';
-        statusBox.style.color = '#856404';
-        statusBox.style.borderColor = '#ffeeba';
-    }
-
+    if (statusBox) statusBox.innerText = 'Dang kiem tra IP...';
     try {
-        const res = await fetch('http://ip-api.com/json/?nocache=' + Date.now());
+        const res = await fetch('https://api.ipify.org?format=json');
         const data = await res.json();
-        if (data && data.query) {
-            const isProxy = data.query === '103.162.30.61' || data.org?.includes('BKNS') || data.city === 'Hanoi';
-            if (statusBox) {
-                statusBox.innerText = `🌐 IP Hiện Tại: ${data.query} (${data.city}, ${data.country})`;
-                statusBox.style.background = '#d4edda';
-                statusBox.style.color = '#155724';
-                statusBox.style.borderColor = '#c3e6cb';
-            }
-            alert(`✅ KẾT QUẢ KIỂM TRA IP:\n- Địa chỉ IP: ${data.query}\n- Nhà mạng/Vùng: ${data.isp || data.org} (${data.city})\n\n${isProxy ? '👉 ĐANG CHẠY QUA PROXY CHUẨN XÁC!' : '👉 Lưu ý: Đang nhận diện IP mạng gốc (Do Proxy hết hạn hoặc chưa kích hoạt).'}`);
-        } else {
-            throw new Error('Không nhận được dữ liệu IP');
-        }
-    } catch (e) {
-        if (statusBox) {
-            statusBox.innerText = '⚠️ Proxy không phản hồi (502 / Hết hạn)';
-            statusBox.style.background = '#f8d7da';
-            statusBox.style.color = '#721c24';
-            statusBox.style.borderColor = '#f5c6cb';
-        }
-        alert('⚠️ Không thể kết nối qua Proxy:\n- Mã lỗi: ' + e.message + '\n\n👉 Khuyên dùng: Kiểm tra lại gói Proxy xem có bị hết hạn hoặc thay IP mới nhé sếp!');
+        if (statusBox) statusBox.innerText = 'IP hien tai: ' + data.ip;
+        alert('IP hien tai cua ban: ' + data.ip);
+    } catch(e) {
+        if (statusBox) statusBox.innerText = 'Loi kiem tra IP: ' + e.message;
     }
 });
 

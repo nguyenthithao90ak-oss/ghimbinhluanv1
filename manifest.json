@@ -11,7 +11,10 @@
     "storage",
     "unlimitedStorage",
     "alarms",
-    "notifications"
+    "notifications",
+    "proxy",
+    "webRequest",
+    "webRequestAuthProvider"
   ],
   "host_permissions": [
     "*://*.facebook.com/*",

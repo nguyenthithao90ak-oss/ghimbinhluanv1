@@ -250,50 +250,28 @@
             <button id="btnSaveTele" style="width:100%; padding:6px; background:#28a745; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">💾 LƯU CẤU HÌNH TELEGRAM</button>
         </div>
 
-        <!-- PROXY STATUS (NEW UI) -->
+        <!-- 🌐 PROXY LIST (HTTP/HTTPS + SOCKS5) -->
         <div class="card" style="margin-top: 10px;">
-            <h4 style="margin: 0 0 8px 0; color: #1877f2;">🌐 Trạng Thái Proxy</h4>
-            <div id="activeProxyStatus" style="padding: 10px; background: #e7f3ff; border: 1px solid #1877f2; border-radius: 4px; text-align: center; font-weight: bold; color: #1877f2; font-size: 12px;">
-                Đang tải...
-            </div>
-        </div>
-
-        <!-- OLD PROXY CONFIG (HIDDEN TO PREVENT CRASHES) -->
-        <div class="card" style="margin-top: 10px; display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h4 style="margin: 0; color: #1877f2;">🌐 Cấu Hình Proxy (Mạng Ảo)</h4>
+                <h4 style="margin: 0; color: #1877f2;">🌐 Danh Sách Proxy</h4>
                 <label style="display: inline-flex; align-items: center; cursor: pointer; gap: 5px; font-weight: bold; color: #333; font-size: 11px;">
-                    <input type="checkbox" id="proxyEnable" style="width: auto; margin: 0;"> BẬT PROXY
+                    <input type="checkbox" id="proxyEnableNew" style="width: auto; margin: 0;"> BẬT PROXY
                 </label>
             </div>
-            <div id="proxyFieldsGroup">
-                <div class="group" style="display: flex; gap: 5px;">
-                    <div style="flex: 2;">
-                        <label>IP Host:</label>
-                        <input type="text" id="proxyHost" placeholder="VD: 103.162.30.61">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Port:</label>
-                        <input type="number" id="proxyPort" placeholder="VD: 49064">
-                    </div>
-                </div>
-                <div class="group" style="display: flex; gap: 5px;">
-                    <div style="flex: 1;">
-                        <label>Tài khoản (User):</label>
-                        <input type="text" id="proxyUser" placeholder="Tài khoản Proxy">
-                    </div>
-                    <div style="flex: 1;">
-                        <label>Mật khẩu (Pass):</label>
-                        <input type="password" id="proxyPass" placeholder="Mật khẩu Proxy">
-                    </div>
-                </div>
+            <div class="group">
+                <label style="font-size:10px; color:#666;">Mỗi dòng 1 proxy. Format: <b>ip:port:user:pass:type</b> (type = http hoặc socks5)</label>
+                <textarea id="proxyListText" rows="4" placeholder="VD:&#10;103.1.2.3:8080:admin:pass123:http&#10;45.6.7.8:1080:user:pass456:socks5&#10;192.168.1.1:3128:::http" style="width:100%; padding:6px; border-radius:4px; border:1px solid #ccc; font-size:10px; font-family:Consolas,monospace; resize:vertical;"></textarea>
             </div>
-            
-            <div style="display: flex; gap: 5px; margin-top: 6px;">
-                <button id="btnSaveProxy" style="flex: 2; padding:7px; background:#1877f2; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 11px;">💾 LƯU & KÍCH HOẠT PROXY</button>
-                <button id="btnTestProxy" style="flex: 1; padding:7px; background:#ff9800; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 11px;">⚡ KIỂM TRA IP</button>
+            <div style="font-size:9px; color:#888; margin-bottom:6px;">
+                ℹ️ Proxy sẽ tự động xoay mỗi lần chuyển nick. Nếu không có user/pass thì để trống: <b>ip:port:::type</b>
             </div>
-
+            <div id="activeProxyStatus" style="padding: 6px; background: #e7f3ff; border: 1px solid #1877f2; border-radius: 4px; text-align: center; font-weight: bold; color: #1877f2; font-size: 11px; margin-bottom: 6px;">
+                🔴 Proxy TẮT
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button id="btnSaveProxyList" style="flex: 2; padding:7px; background:#1877f2; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 11px;">💾 LƯU DANH SÁCH PROXY</button>
+                <button id="btnTestProxy" style="flex: 1; padding:7px; background:#ff9800; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size: 11px;">⚡ TEST IP</button>
+            </div>
         </div>
     </div>
 

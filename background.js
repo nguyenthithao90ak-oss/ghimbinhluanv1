@@ -146,8 +146,67 @@ function autoMigrateLinksToMuadore() {
 // Chạy tự động cập nhật link ngay khi Service Worker khởi động
 autoMigrateLinksToMuadore();
 
-function applyProxyFromStorage() {
-    return;
+// ========== PROXY MANAGEMENT (HTTP/HTTPS + SOCKS5) ==========
+function applyProxyFromStorage(proxyIndex) {
+    chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
+        if (!st.proxyEnabled || !st.proxyList || st.proxyList.length === 0) {
+            clearProxySettings();
+            return;
+        }
+        const idx = (proxyIndex !== undefined) ? proxyIndex : (st.proxyCurrentIndex || 0);
+        const proxy = st.proxyList[idx % st.proxyList.length];
+        if (!proxy || !proxy.host || !proxy.port) {
+            clearProxySettings();
+            return;
+        }
+
+        const scheme = (proxy.type === 'socks5') ? 'socks5' : 'http';
+        const config = {
+            mode: "fixed_servers",
+            rules: {
+                singleProxy: {
+                    scheme: scheme,
+                    host: proxy.host,
+                    port: proxy.port
+                },
+                bypassList: ["localhost", "127.0.0.1"]
+            }
+        };
+
+        chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => {
+            console.log(`🌐 Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port} (${scheme})`);
+            addLog(`🌐 Đã áp dụng Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port} (${scheme})`);
+        });
+
+        // Xử lý auth nếu có user/pass
+        if (proxy.user && proxy.pass) {
+            chrome.webRequest?.onAuthRequired?.addListener(
+                function proxyAuth(details, callbackFn) {
+                    callbackFn({ authCredentials: { username: proxy.user, password: proxy.pass } });
+                },
+                { urls: ["<all_urls>"] },
+                ["asyncBlocking"]
+            );
+        }
+
+        chrome.storage.local.set({ proxyCurrentIndex: idx });
+    });
+}
+
+function clearProxySettings() {
+    chrome.proxy.settings.set({ value: { mode: "direct" }, scope: 'regular' }, () => {
+        console.log('🌐 Proxy đã TẮT -> Kết nối trực tiếp.');
+    });
+}
+
+function rotateProxyForNextNick() {
+    chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
+        if (!st.proxyEnabled || !st.proxyList || st.proxyList.length === 0) return;
+        const nextIdx = ((st.proxyCurrentIndex || 0) + 1) % st.proxyList.length;
+        chrome.storage.local.set({ proxyCurrentIndex: nextIdx }, () => {
+            applyProxyFromStorage(nextIdx);
+        });
+    });
 }
 
 // 🔄 RESET TRẠNG THÁI KHI CHROME KHỞI ĐỘNG LẠI (TẮT PC / ĐÓNG CHROME)
@@ -462,6 +521,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             applyProxyFromStorage();
             return;
         }
+        if (request.action === "applyProxy") {
+            applyProxyFromStorage(request.proxyIndex || 0);
+            return;
+        }
+        if (request.action === "clearProxy") {
+            clearProxySettings();
+            return;
+        }
     if(request.action === 'updateProxySettings') { return; }
 
     if (request.action === "ping") {
@@ -624,6 +691,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     
                     const cooldownSecs = Math.floor(Math.random() * 7) + 4; // Random từ 4 đến 10 giây
                     addLog(`📌 Đã hoàn tất Nick "${pName}". Nghỉ ngơi tự nhiên ${cooldownSecs} giây trước khi chuyển sang Nick tiếp theo...`);
+                    rotateProxyForNextNick(); // 🌐 XOAY PROXY CHO NICK TIẾP THEO
                     chrome.alarms.create("nextPageCooldown", { delayInMinutes: cooldownSecs / 60 });
                 }
             });
