@@ -236,7 +236,7 @@ function applyProxyFromStorage(proxyIndex) {
             currentAuthListener = null;
         }
 
-        const scheme = (proxy.type === 'socks5') ? 'socks5' : 'http';
+        const scheme = (proxy.type === 'socks5') ? 'socks5' : (proxy.type === 'https') ? 'https' : 'http';
 
         if (scheme === 'socks5') {
             // SOCKS5: Dùng PAC script để nhúng auth trực tiếp
@@ -247,15 +247,15 @@ function applyProxyFromStorage(proxyIndex) {
             };
             chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => {
                 console.log(`🌐 SOCKS5 Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port}`);
-                addLog(`🌐 Đã áp dụng SOCKS5 Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port}`);
+                addLog(`🌐 SOCKS5 Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port}`);
             });
         } else {
-            // HTTP: Dùng fixed_servers + webRequest auth
+            // HTTP/HTTPS: Dùng fixed_servers + webRequest auth
             const config = {
                 mode: "fixed_servers",
                 rules: {
                     singleProxy: {
-                        scheme: 'http',
+                        scheme: scheme,
                         host: proxy.host,
                         port: proxy.port
                     },
@@ -263,8 +263,8 @@ function applyProxyFromStorage(proxyIndex) {
                 }
             };
             chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => {
-                console.log(`🌐 HTTP Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port}`);
-                addLog(`🌐 Đã áp dụng HTTP Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port}`);
+                console.log(`🌐 ${scheme.toUpperCase()} Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port}`);
+                addLog(`🌐 ${scheme.toUpperCase()} Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port}`);
             });
         }
 

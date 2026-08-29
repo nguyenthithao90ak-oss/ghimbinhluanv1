@@ -286,22 +286,16 @@ function renderLogs() {
         
         lastRenderedLogsText = newText;
 
-        // 🎨 LOG GỌN - DỄ ĐỌC
+        // 🎨 HIGHLIGHT TÊN NICK MÀU ĐỎ ĐẬM
         const htmlLines = logs.map(line => {
             // Escape HTML
             let safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            // Tách timestamp [HH:MM] và nội dung
-            const match = safe.match(/^\[(\d{2}:\d{2})\]\s*(.*)/);
-            if (match) {
-                let content = match[2];
-                // Nick trong "" → đỏ đậm
-                content = content.replace(/&quot;([^&]+)&quot;/g, '<span style="color:#ff4444;font-weight:bold;">"$1"</span>');
-                content = content.replace(/"([^"]+)"/g, '<span style="color:#ff4444;font-weight:bold;">"$1"</span>');
-                return `<span style="color:#888;font-size:10px;">${match[1]}</span> <span style="color:#e0e0e0;">${content}</span>`;
-            }
-            return `<span style="color:#e0e0e0;">${safe}</span>`;
+            // Nick trong "" → đỏ đậm to
+            safe = safe.replace(/&quot;([^&]+)&quot;/g, '<span style="color:#ff4444;font-size:13px;font-weight:bold;">"$1"</span>');
+            safe = safe.replace(/"([^"]+)"/g, '<span style="color:#ff4444;font-size:13px;font-weight:bold;">"$1"</span>');
+            return safe;
         });
-        logBox.innerHTML = htmlLines.join('<br>');
+        logBox.innerHTML = htmlLines.join('\n');
 
         if (isNearBottom) {
             logBox.scrollTop = logBox.scrollHeight;
