@@ -11,9 +11,6 @@
     "storage",
     "unlimitedStorage",
     "alarms",
-    "proxy",
-    "webRequest",
-    "webRequestAuthProvider",
     "notifications"
   ],
   "host_permissions": [

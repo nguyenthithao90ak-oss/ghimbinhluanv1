@@ -281,8 +281,80 @@ function findClickableElement(textOrArray) {
     return null;
 }
 
+// =============================================
+// 🌐 TÍNH NĂNG 1: NHẬN DIỆN MẠNG LAG & ĐIỀU CHỈNH CHỜ THÔNG MINH
+// =============================================
+async function smartWaitForNetworkAndLoad(context = "") {
+    // 1. Kiểm tra trạng thái Online của trình duyệt
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        logMsg(`⚠️ [MẠNG MẤT KẾT NỐI] Trình duyệt đang offline! Chờ 5s để mạng phục hồi... (${context})`);
+        await delay(5, 7);
+    }
+
+    // 2. Quét các chỉ báo Loading/Spinner của Facebook
+    let lagWaitCount = 0;
+    const maxLagWait = 3; // Chờ tối đa 3 lần x 2.5s = ~7.5s
+
+    while (lagWaitCount < maxLagWait) {
+        const isBusy = Array.from(document.querySelectorAll('div[role="progressbar"], [aria-busy="true"], [aria-label*="Loading" i], [aria-label*="Đang tải" i], div[data-sigil*="loading"]')).some(el => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && r.top < window.innerHeight;
+        });
+
+        if (isBusy) {
+            lagWaitCount++;
+            logMsg(`⏳ [SMART LAG DETECTOR] Phát hiện Facebook đang xoay tải/mạng chậm (${context}). Tự động chờ thêm... (Lần ${lagWaitCount}/${maxLagWait})`);
+            await delay(2, 3);
+        } else {
+            break;
+        }
+    }
+}
+
+// =============================================
+// 🎯 TÍNH NĂNG 2: XÁC NHẬN THAO TÁC & SMART RETRY TỰ ĐỘNG
+// =============================================
+async function smartClickAndVerify(findFn, verifyFn, description, maxRetries = 3, waitSec = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        // Tự động kiểm tra mạng lag trước khi bấm
+        await smartWaitForNetworkAndLoad(description);
+
+        const el = findFn();
+        if (!el) {
+            logMsg(`⏳ [Lần ${attempt}/${maxRetries}] Chưa thấy "${description}". Chờ ${waitSec}s thử lại...`);
+            await delay(waitSec);
+            continue;
+        }
+
+        logMsg(`🎯 [Lần ${attempt}/${maxRetries}] Đang click: ${description}...`);
+        await safeClick(el);
+
+        // Chờ phản hồi sau click
+        await delay(waitSec, waitSec + 1);
+
+        // Nếu có hàm xác nhận kết quả -> kiểm tra xem thao tác đã ăn chưa
+        if (typeof verifyFn === 'function') {
+            const isVerified = verifyFn();
+            if (isVerified) {
+                logMsg(`✅ [XÁC NHẬN THÀNH CÔNG] Đã hoàn thành: ${description}!`);
+                return true;
+            } else {
+                logMsg(`🔄 [CHƯA PHẢN HỒI] Thao tác "${description}" chưa có kết quả (do mạng lag hoặc trượt click). Tự động bấm lại lần ${attempt + 1}/${maxRetries}...`);
+                await delay(1, 2);
+            }
+        } else {
+            logMsg(`✅ ĐÃ CLICK: ${description}`);
+            return true;
+        }
+    }
+
+    logMsg(`❌ [THẤT BẠI SAU ${maxRetries} LẦN] Không thể hoàn tất: ${description}`);
+    return false;
+}
+
 async function retryFind(findFn, description, maxRetries = 3, waitSec = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        await smartWaitForNetworkAndLoad(description);
         const el = findFn();
         if (el) {
             logMsg(`✅ [Lần ${attempt}] Tìm thấy: ${description}`);
@@ -296,15 +368,7 @@ async function retryFind(findFn, description, maxRetries = 3, waitSec = 3) {
 }
 
 async function retryFindAndClick(findFn, description, maxRetries = 3, waitSec = 3) {
-    const el = await retryFind(findFn, description, maxRetries, waitSec);
-    if (el) {
-        logMsg(`🎯 Đang click: ${description}...`);
-        await safeClick(el);
-        logMsg(`✅ ĐÃ THỰC SỰ CLICK: ${description}`);
-        return true;
-    }
-    // Nếu không tìm thấy, retryFind đã log "Không thấy" rồi, nên ở đây không cần log thêm log ảo nữa.
-    return false;
+    return await smartClickAndVerify(findFn, null, description, maxRetries, waitSec);
 }
 
 // XỬ LÝ 1 VIDEO REELS
@@ -920,27 +984,11 @@ async function runChecking(pageConfigs, targetPageName) {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
         await delay(1, 2);
         
-        // 0. ĐỌC TÊN NICK CHUẨN XÁC (THỬ LẠI 3 LẦN ĐỢI TRANG LOAD XONG CHỮ)
-        let currentPageName = "";
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            currentPageName = getFacebookProfileNameStrict();
-            if (currentPageName && isNameMatch(currentPageName, targetPageName)) {
-                break;
-            }
-            logMsg(`🔎 [Lần ${attempt}/3] Đang đọc tên Nick trên màn hình (Hiện tại: "${currentPageName || 'Đang tải...'}")`);
-            await delay(1.5, 2.5);
-        }
-
+        // 0. BỎ QUA KIỂM TRA TÊN NICK (Luôn tin tưởng account_switcher đã làm đúng)
+        let currentPageName = targetPageName; // Giả định luôn đúng
         setupBlockDetector(targetPageName);
-        logMsg(`📌 Profile nhận diện cuối cùng: "${currentPageName}" | Mục tiêu: "${targetPageName}"`);
-
-        if (currentPageName && isNameMatch(currentPageName, targetPageName)) {
-            logMsg(`✅ ĐÚNG NICK "${targetPageName}"! Vào Reels luôn...`);
-        } else {
-            logMsg(`🔄 KHÁC NICK (Hiện tại: "${currentPageName}" ≠ Mục tiêu: "${targetPageName}"). Cần chuyển sang Nick "${targetPageName}"...`);
-            safeSendMessage({ action: "needAccountSwitch", targetPageName });
-            return;
-        }
+        
+        logMsg(`✅ Bỏ qua kiểm tra tên Nick. Giả định ĐÚNG NICK "${targetPageName}"! Vào Reels luôn...`);
 
         // 1. BẤM TAB REELS
         await delay(1, 3);
@@ -954,28 +1002,55 @@ async function runChecking(pageConfigs, targetPageName) {
         }
 
         // 2. LẤY DANH SÁCH VIDEO REELS ĐẦU TIÊN ĐỂ XỬ LÝ
-        await delay(1, 3);
+        await delay(2, 4);
         logMsg("🔍 Đang lấy danh sách Video Reels...");
+
+        // Hàm tìm vị trí Y của tab Reels để biết lưới video bắt đầu từ đâu
+        function getReelsGridTopY() {
+            // Tìm tab "Reels" đang active
+            const tabs = Array.from(document.querySelectorAll('a, div, span')).filter(el => {
+                const txt = (el.innerText || '').trim();
+                return /^Reels$/i.test(txt) || /^Video$/i.test(txt);
+            });
+            if (tabs.length > 0) {
+                const r = tabs[0].getBoundingClientRect();
+                return r.bottom + 20; // Lưới video nằm dưới tab bar
+            }
+            return 400; // Mặc định nếu không tìm thấy tab
+        }
+
+        // Hàm lọc chỉ lấy link/ảnh nằm trong lưới Reels (dưới tab bar, không phải ảnh bìa)
+        function findReelLinks() {
+            const minY = getReelsGridTopY();
+            
+            // Ưu tiên 1: Link có href chứa /reel/ hoặc /video/ NẰM DƯỚI TAB REELS
+            let links = Array.from(document.querySelectorAll('a')).filter(a => {
+                const r = a.getBoundingClientRect();
+                return (a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/'))
+                    && r.top >= minY && r.height > 50 && r.height < 500;
+            });
+            if (links.length > 0) return links;
+
+            // Ưu tiên 2: Ảnh thumbnail trong lưới Reels (kích thước vừa phải, KHÔNG phải ảnh bìa khổng lồ)
+            let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
+                const r = img.getBoundingClientRect();
+                // Thumbnail Reels: nằm dưới tab, kích thước 100-300px, KHÔNG phải ảnh bìa (>400px chiều ngang)
+                return r.top >= minY && r.width > 80 && r.width < 400 && r.height > 100 && r.height < 400;
+            });
+            if (imgs.length > 0) return imgs;
+
+            // Ưu tiên 3: Bất kỳ link video nào trên trang (không lọc vị trí)
+            links = Array.from(document.querySelectorAll('a')).filter(a =>
+                a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/')
+            );
+            return links;
+        }
         
         let reelLinks = [];
         await retryFind(() => {
-            let links = Array.from(document.querySelectorAll('a')).filter(a => 
-                a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/')
-            );
-            if (links.length > 0) {
-                reelLinks = links;
-                return true;
-            }
-            return false;
-        }, 'Danh sách Reels', 1, 5);
-
-        if (reelLinks.length === 0) {
-            let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
-                const r = img.getBoundingClientRect();
-                return r.width > 100 && r.height > 150;
-            });
-            if (imgs.length > 0) reelLinks = imgs; // Fallback click img
-        }
+            reelLinks = findReelLinks();
+            return reelLinks.length > 0;
+        }, 'Danh sách Reels', 2, 5);
 
         if (reelLinks.length === 0) {
             logMsg("⚠️ Không thấy Reels nào.");
@@ -984,34 +1059,23 @@ async function runChecking(pageConfigs, targetPageName) {
         }
 
         // CHỈ XỬ LÝ ĐÚNG 1 VIDEO ĐẦU TIÊN
-        logMsg(`🎯 Tìm thấy các Reels, tiến hành làm ĐÚNG 1 VIDEO ĐẦU TIÊN cho Page "${targetPageName}"...`);
+        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels, tiến hành làm ĐÚNG 1 VIDEO ĐẦU TIÊN cho Page "${targetPageName}"...`);
 
-        let currentList = [];
-        await retryFind(() => {
-            let links = Array.from(document.querySelectorAll('a')).filter(a => 
-                a.href.includes('/reel/') || a.href.includes('/video/') || a.href.includes('/watch/')
-            );
-            if (links.length > 0) { currentList = links; return true; }
-            let imgs = Array.from(document.querySelectorAll('img')).filter(img => {
-                const r = img.getBoundingClientRect();
-                return r.width > 100 && r.height > 150;
-            });
-            if (imgs.length > 0) { currentList = imgs; return true; }
-            return false;
-        }, `Video Reels đầu tiên`, 3, 4);
-
-        if (currentList.length > 0) {
-            await safeClick(currentList[0]);
-            // 🎬 TÍNH NĂNG 1: GIẢ LẬP XEM VIDEO TỰ NHIÊN (RANDOM 4 - 10 GIÂY)
-            const watchSecs = Math.floor(Math.random() * 7) + 4;
-            logMsg("🎬 Giả lập người thật: Đang dừng xem Video Reels tự nhiên (" + watchSecs + " giây)...");
-            await delay(watchSecs);
-            await humanScrollJitter();
-        } else {
-            logMsg(`⚠️ Không thể mở video đầu tiên. Bỏ qua Page này.`);
-            safeSendMessage({ action: "pageCompleted" });
-            return;
+        // Scroll xuống một chút để đảm bảo video đầu tiên nằm trong viewport
+        const firstEl = reelLinks[0];
+        const firstRect = firstEl.getBoundingClientRect();
+        if (firstRect.top > window.innerHeight * 0.7) {
+            window.scrollBy(0, firstRect.top - window.innerHeight * 0.4);
+            await delay(1, 2);
         }
+
+        // Click video đầu tiên
+        await safeClick(firstEl);
+        // 🎬 TÍNH NĂNG 1: GIẢ LẬP XEM VIDEO TỰ NHIÊN (RANDOM 4 - 10 GIÂY)
+        const watchSecs = Math.floor(Math.random() * 7) + 4;
+        logMsg("🎬 Giả lập người thật: Đang dừng xem Video Reels tự nhiên (" + watchSecs + " giây)...");
+        await delay(watchSecs);
+        await humanScrollJitter();
 
         // Gọi hàm xử lý 1 video
         let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;

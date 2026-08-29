@@ -46,16 +46,16 @@ function sanitizeLogText(str) {
 }
 
 const DEFAULT_PRESET_PAGES = [
-    { pageName: "Thế Giới Di Động", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
-    { pageName: "Nguyễn Thao Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
-    { pageName: "shop quần giá rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
-    { pageName: "Quần Đẹp Giá Rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
-    { pageName: "Shop Đồ Xinh", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
-    { pageName: "Trái Cây Miền Quê", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" },
-    { pageName: "Vựa Trái Cây Chị Năm", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" },
-    { pageName: "Shop Đồ Bộ Thao Thao", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
-    { pageName: "Xưởng May Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
-    { pageName: "Trái Cây Anh Ba", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" }
+    { pageName: "Thế Giới Di Động", commentText: "em thanh lý xả hàng điện thoại tại đây https://muadore.site", imageData: "" },
+    { pageName: "Nguyễn Thao Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadore.site", imageData: "" },
+    { pageName: "shop quần giá rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadore.site", imageData: "" },
+    { pageName: "Quần Đẹp Giá Rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadore.site", imageData: "" },
+    { pageName: "Shop Đồ Xinh", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadore.site", imageData: "" },
+    { pageName: "Trái Cây Miền Quê", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://muadore.site", imageData: "" },
+    { pageName: "Vựa Trái Cây Chị Năm", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://muadore.site", imageData: "" },
+    { pageName: "Shop Đồ Bộ Thao Thao", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadore.site", imageData: "" },
+    { pageName: "Xưởng May Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadore.site", imageData: "" },
+    { pageName: "Trái Cây Anh Ba", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://muadore.site", imageData: "" }
 ];
 
 // Open full dashboard tab
@@ -321,6 +321,80 @@ document.getElementById('btnClearAllConfigs').addEventListener('click', () => {
     }
 });
 
+// ==========================================
+// 🔗 THAY ĐỔI LIÊN KẾT GHIM HÀNG LOẠT
+// ==========================================
+
+// Hàm trích xuất tất cả domain link từ configs
+function extractLinkDomains(configs) {
+    const domains = new Set();
+    const urlRegex = /https?:\/\/[^\s/]+/gi;
+    (configs || []).forEach(cfg => {
+        const matches = (cfg.commentText || '').match(urlRegex);
+        if (matches) {
+            matches.forEach(m => domains.add(m.replace(/\/$/, '')));
+        }
+    });
+    return Array.from(domains);
+}
+
+// Hàm hiển thị preview các link hiện tại
+function refreshLinkPreview() {
+    chrome.storage.local.get(['pageConfigs'], (res) => {
+        const configs = res.pageConfigs || [];
+        const domains = extractLinkDomains(configs);
+        const previewDiv = document.getElementById('currentLinksPreview');
+        if (!previewDiv) return;
+        if (domains.length === 0) {
+            previewDiv.innerHTML = '<i>Chưa có link nào trong nội dung ghim.</i>';
+        } else {
+            previewDiv.innerHTML = '<b>Link hiện tại:</b> ' + domains.map(d => `<span style="color:#1877f2;">${d}</span>`).join(', ');
+        }
+    });
+}
+
+// Chạy preview khi popup mở
+refreshLinkPreview();
+
+// Nút thay thế link hàng loạt
+document.getElementById('btnReplaceLinks').addEventListener('click', () => {
+    const newDomain = (document.getElementById('newLinkDomain').value || '').trim().replace(/\/+$/, '');
+    if (!newDomain || !newDomain.startsWith('http')) {
+        return alert('⚠️ Vui lòng nhập link mới hợp lệ (bắt đầu bằng http:// hoặc https://)');
+    }
+
+    chrome.storage.local.get(['pageConfigs'], (res) => {
+        const configs = res.pageConfigs || [];
+        if (configs.length === 0) return alert('Chưa có mẫu nào để thay link!');
+
+        // Regex bắt full URL (domain + path)
+        const urlRegex = /https?:\/\/[^\s]+/gi;
+        let totalReplaced = 0;
+        let pagesAffected = 0;
+
+        const updatedConfigs = configs.map(cfg => {
+            const originalText = cfg.commentText || '';
+            // Thay thế: giữ nguyên path, chỉ đổi domain
+            const newText = originalText.replace(urlRegex, (matchedUrl) => {
+                totalReplaced++;
+                return newDomain;
+            });
+
+            if (newText !== originalText) {
+                pagesAffected++;
+            }
+
+            return { ...cfg, commentText: newText };
+        });
+
+        chrome.storage.local.set({ pageConfigs: updatedConfigs }, () => {
+            loadConfigs();
+            refreshLinkPreview();
+            alert(`✅ ĐÃ THAY ${totalReplaced} LINK trong ${pagesAffected} Page!\n\nLink mới: ${newDomain}`);
+        });
+    });
+});
+
 // Load configs from storage
 function loadConfigs() {
     chrome.storage.local.get(['pageConfigs'], (result) => {
@@ -329,6 +403,22 @@ function loadConfigs() {
         if (configs.length === 0) {
             configs = DEFAULT_PRESET_PAGES;
             chrome.storage.local.set({ pageConfigs: configs });
+        } else {
+            // TỰ ĐỘNG CHUYỂN TOÀN BỘ LINK CŨ SANG https://muadore.site VÀ BỎ HẾT ĐƯỜNG DẪN CON /XXXX
+            const urlRegex = /https?:\/\/[^\s]+/gi;
+            let needUpdate = false;
+            configs = configs.map(c => {
+                const orig = c.commentText || '';
+                const replaced = orig.replace(urlRegex, 'https://muadore.site');
+                if (replaced !== orig) {
+                    needUpdate = true;
+                    return { ...c, commentText: replaced };
+                }
+                return c;
+            });
+            if (needUpdate) {
+                chrome.storage.local.set({ pageConfigs: configs });
+            }
         }
         const container = document.getElementById('configList');
         if (configs.length === 0) {

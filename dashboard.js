@@ -30,16 +30,16 @@ function sanitizeLogText(str) {
 }
 
 const DEFAULT_PRESET_PAGES = [
-    { pageName: "Thế Giới Di Động", commentText: "em thanh lý xả hàng điện thoại tại đây https://s.shopee.vn/6pzLOWcrRM", imageData: "" },
-    { pageName: "Nguyễn Thao Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
-    { pageName: "shop quần giá rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
-    { pageName: "Quần Đẹp Giá Rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
-    { pageName: "Shop Đồ Xinh", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadosale.web.app/tonghopquan", imageData: "" },
-    { pageName: "Trái Cây Miền Quê", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" },
-    { pageName: "Vựa Trái Cây Chị Năm", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" },
-    { pageName: "Shop Đồ Bộ Thao Thao", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
-    { pageName: "Xưởng May Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadosale.web.app/dobogiare", imageData: "" },
-    { pageName: "Trái Cây Anh Ba", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://mua-do-re.web.app/saurieng", imageData: "" }
+    { pageName: "Thế Giới Di Động", commentText: "em thanh lý xả hàng điện thoại tại đây https://muadore.site", imageData: "" },
+    { pageName: "Nguyễn Thao Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadore.site", imageData: "" },
+    { pageName: "shop quần giá rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadore.site", imageData: "" },
+    { pageName: "Quần Đẹp Giá Rẻ", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadore.site", imageData: "" },
+    { pageName: "Shop Đồ Xinh", commentText: "mấy chị ấn đây để đặt giúp em nha https://muadore.site", imageData: "" },
+    { pageName: "Trái Cây Miền Quê", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://muadore.site", imageData: "" },
+    { pageName: "Vựa Trái Cây Chị Năm", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://muadore.site", imageData: "" },
+    { pageName: "Shop Đồ Bộ Thao Thao", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadore.site", imageData: "" },
+    { pageName: "Xưởng May Đồ Bộ", commentText: "Em xả hàng đồ bộ tại đây các chị nhấn vào chọn size luôn nhen https://muadore.site", imageData: "" },
+    { pageName: "Trái Cây Anh Ba", commentText: "{Em xả hàng sầu riêng tại đây|Mình xả hàng sầu riêng tại đây nhé|Xả hàng sầu riêng tại đây ấn vào để đặt hàng|Shop xả kho sầu riêng giá rẻ tại đây nè} https://muadore.site", imageData: "" }
 ];
 
 let currentDashImageData = null;

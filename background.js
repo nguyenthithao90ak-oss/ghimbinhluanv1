@@ -107,98 +107,47 @@ applyDeviceEmulationFromStorage();
 
 // ======================================================================================
 // CẤU HÌNH PROXY HTTP (SẴN SÀNG THÊM DANH SÁCH PROXY HTTP TẠI ĐÂY)
-// Định dạng: { host: "ip", port: 1234, user: "user", pass: "pass" }
-// Hoặc để mảng rỗng [] nếu muốn chạy trực tiếp bằng mạng Wi-Fi gốc
 // ======================================================================================
-let currentProxyIndex = 0;
+// 🔄 TỰ ĐỘNG CHUYỂN ĐỔI LIÊN KẾT GHIM SANG https://muadore.site
+// ======================================================================================
+function autoMigrateLinksToMuadore() {
+    const TARGET_LINK = "https://muadore.site";
+    const urlRegex = /https?:\/\/[^\s]+/gi;
 
-const HTTP_PROXIES = [
-    { host: "103.162.30.61", port: 49064, user: "user49064", pass: "Gd6O4RL1gK" }
-];
+    chrome.storage.local.get(['pageConfigs'], (res) => {
+        const configs = res.pageConfigs;
+        if (!configs || !Array.isArray(configs) || configs.length === 0) return;
 
-// Luôn đảm bảo xóa proxy khi khởi động nếu không có HTTP proxy nào trong danh sách
-if (typeof chrome !== 'undefined' && chrome.proxy) {
-    if (HTTP_PROXIES.length === 0) {
-        chrome.proxy.settings.clear({ scope: "regular" }, () => {
-            chrome.storage.local.set({ activeProxy: "Mạng gốc (Wi-Fi)" });
-            console.log("🛑 Đang sử dụng mạng gốc (Không dùng Proxy).");
-        });
-    }
-}
-
-chrome.webRequest.onAuthRequired.addListener(
-    (details, callbackFn) => {
-        if (details.isProxy) {
-            chrome.storage.local.get(['proxyUser', 'proxyPass'], (st) => {
-                const user = st.proxyUser || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].user : '');
-                const pass = st.proxyPass || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].pass : '');
-                if (user) {
-                    callbackFn({ authCredentials: { username: user, password: pass || "" } });
-                    return;
+        let changed = false;
+        const updatedConfigs = configs.map(cfg => {
+            const originalText = cfg.commentText || '';
+            if (urlRegex.test(originalText)) {
+                urlRegex.lastIndex = 0;
+                const newText = originalText.replace(urlRegex, TARGET_LINK);
+                if (newText !== originalText) {
+                    changed = true;
+                    return { ...cfg, commentText: newText };
                 }
-                callbackFn({});
-            });
-            return;
-        }
-        callbackFn({});
-    },
-    { urls: ["<all_urls>"] },
-    ["asyncBlocking"]
-);
-
-// TỰ ĐỘNG KHỞI TẠO VÀ LƯU PROXY VÀO STORAGE KHI KHỞI ĐỘNG
-chrome.storage.local.get(['proxyHost', 'proxyPort', 'proxyUser', 'proxyPass', 'proxyEnable'], (st) => {
-    if (!st.proxyHost || !st.proxyPort) {
-        chrome.storage.local.set({
-            proxyEnable: true,
-            proxyScheme: 'http',
-            proxyHost: '103.162.30.61',
-            proxyPort: 49064,
-            proxyUser: 'user49064',
-            proxyPass: 'Gd6O4RL1gK'
-        }, () => {
-            applyProxyFromStorage();
+            }
+            return cfg;
         });
-    } else {
-        applyProxyFromStorage();
-    }
-});
 
-function applyProxyFromStorage() {
-    if (typeof chrome === 'undefined' || !chrome.proxy) return;
-
-    chrome.storage.local.get(['proxyEnable', 'proxyScheme', 'proxyHost', 'proxyPort', 'proxyUser', 'proxyPass'], (st) => {
-        const isEnabled = st.proxyEnable !== undefined ? st.proxyEnable : true;
-        const scheme = st.proxyScheme || 'http';
-        const host = st.proxyHost || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].host : '');
-        const port = st.proxyPort || (HTTP_PROXIES.length > 0 ? HTTP_PROXIES[0].port : 0);
-
-        if (!isEnabled || !host || !port) {
-            chrome.proxy.settings.clear({ scope: "regular" }, () => {
-                chrome.storage.local.set({ activeProxy: "Mạng gốc (Wi-Fi)" });
-                console.log("🛑 Đang sử dụng mạng gốc (Không dùng Proxy).");
+        if (changed) {
+            chrome.storage.local.set({ pageConfigs: updatedConfigs }, () => {
+                console.log("✅ Đã tự động cập nhật toàn bộ link sang:", TARGET_LINK);
             });
-            return;
-        }
-
-        try {
-            const proxySettings = {
-                mode: "fixed_servers",
-                rules: {
-                    singleProxy: { scheme: scheme, host: host, port: parseInt(port) },
-                    bypassList: ["localhost", "127.0.0.1", "api.telegram.org"]
-                }
-            };
-            chrome.proxy.settings.set({ value: proxySettings, scope: "regular" }, () => {
-                const proxyStr = `${scheme.toUpperCase()} ${host}:${port}`;
-                chrome.storage.local.set({ activeProxy: proxyStr });
-                console.log(`✅ Đã BẬT Proxy: ${proxyStr}`);
-                addLog(`🌐 Đã BẬT Proxy: ${proxyStr}`);
-            });
-        } catch (e) {
-            console.error("Lỗi cấu hình Proxy:", e);
         }
     });
+
+    // Dọn dẹp các biến proxy cũ nếu còn lưu trong storage
+    chrome.storage.local.remove(['proxyHost', 'proxyPort', 'proxyUser', 'proxyPass', 'proxyEnable', 'activeProxy']);
+}
+
+// Chạy tự động cập nhật link ngay khi Service Worker khởi động
+autoMigrateLinksToMuadore();
+
+function applyProxyFromStorage() {
+    return;
 }
 
 // ĐĂNG KÝ ALARM TELEGRAM POLL (thay setInterval để không bị Chrome sleep)
@@ -463,10 +412,6 @@ function processNextStep() {
                 }
             });
             chrome.storage.local.set({ isBotRunning: false });
-            if (typeof chrome !== 'undefined' && chrome.proxy) {
-                chrome.proxy.settings.clear({ scope: "regular" });
-                chrome.storage.local.set({ activeProxy: "" });
-            }
             if (tabId) {
                 try {
                     chrome.tabs.remove(tabId);
@@ -517,44 +462,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
         });
         chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" });
-        if (typeof chrome !== 'undefined' && chrome.proxy) {
-            chrome.proxy.settings.clear({ scope: "regular" }, () => {
-                chrome.storage.local.set({ activeProxy: "" });
-                addLog("🛑 Đã gỡ bỏ Proxy, trở về mạng gốc.");
-            });
-        }
         addLog("🛑 ĐÃ DỪNG LẠI HOÀN TOÀN TẤT CẢ TÁC VỤ & HẸN GIỜ BOT!");
         console.log("🛑 Dừng tiến trình BOT");
         return;
     }
 
-        if (request.action === "startMultiAccountProcess") {
+    if (request.action === "startMultiAccountProcess") {
         const rawConfigs = request.targetConfigs || [];
         if (rawConfigs.length === 0) return;
-        
-        // Nếu có cấu hình HTTP_PROXIES thì áp dụng xoay vòng Proxy HTTP
-        if (HTTP_PROXIES.length > 0 && typeof chrome !== 'undefined' && chrome.proxy) {
-            const p = HTTP_PROXIES[currentProxyIndex];
-            currentProxyIndex = (currentProxyIndex + 1) % HTTP_PROXIES.length;
-            const proxyConfig = {
-                mode: "fixed_servers",
-                rules: {
-                    singleProxy: { scheme: "http", host: p.host, port: parseInt(p.port) },
-                    bypassList: ["localhost", "127.0.0.1"]
-                }
-            };
-            chrome.proxy.settings.set({ value: proxyConfig, scope: "regular" }, () => {
-                chrome.storage.local.set({ activeProxy: `HTTP ${p.host}:${p.port}` });
-                addLog(`🌐 Đã đổi IP sang Proxy HTTP: ${p.host}:${p.port}`);
-                triggerStartProcess(rawConfigs);
-            });
-        } else {
-            // Không dùng proxy -> đảm bảo chạy thẳng mạng gốc mượt mà
-            if (typeof chrome !== 'undefined' && chrome.proxy) {
-                chrome.proxy.settings.clear({ scope: "regular" });
-            }
-            triggerStartProcess(rawConfigs);
-        }
+        triggerStartProcess(rawConfigs);
         return;
     }
 
@@ -563,8 +479,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (!state.isBotRunning) return;
         
         if (request.action === "alreadyTargetAccount") {
+            const realTabId = (sender && sender.tab && sender.tab.id) || state.tabId;
             addLog(`✅ Nick "${request.pageName}" ĐÃ ĐÚNG! Quay về Profile đăng & ghim luôn...`);
-            chrome.storage.local.set({ step: "NAVIGATING_PROFILE" }, processNextStep);
+            // Cập nhật tabId chính xác và ép chuyển hướng ngay lập tức
+            chrome.storage.local.set({ step: "NAVIGATING_PROFILE", tabId: realTabId }, () => {
+                if (realTabId) {
+                    chrome.tabs.update(realTabId, { url: "https://m.facebook.com/profile.php" });
+                    addLog(`🔀 Đang chuyển hướng Tab ${realTabId} về Profile...`);
+                }
+            });
         }
         else if (request.action === "needAccountSwitch") {
             chrome.storage.local.set({ step: "SWITCHING" }, processNextStep);
@@ -841,23 +764,40 @@ function triggerStartProcess(rawConfigs, isForcedByScheduler = false) {
         addLog(`🎲 CHẾ ĐỘ THỨ TỰ NGẪU NHIÊN: Đã xáo trộn thứ tự chạy cho ${randomizedConfigs.length} Page (Mỗi Page chạy đúng 1 lần/vòng).`);
         addLog(`📋 Thứ tự ngẫu nhiên vòng này: ${orderNames}`);
 
-        chrome.tabs.create({
-            url: "https://m.facebook.com/bookmarks/",
-            active: true
-        }, (tab) => {
-            chrome.storage.local.set({
-                isBotRunning: true,
-                isScheduleWaiting: false,
-                targetConfigs: randomizedConfigs,
-                originalTargetConfigs: rawConfigs,
-                retryQueue: [],
-                currentConfigIndex: 0,
-                isRetryPhase: false,
-                tabId: tab.id,
-                step: "SWITCHING"
-            }, () => {
-                addLog(`🚀 Bắt đầu chạy tiến trình cho ${randomizedConfigs.length} Page (Nick ngẫu nhiên đầu tiên: "${randomizedConfigs[0].pageName}")...`);
-            });
+        // 🎯 TÁI SỬ DỤNG TAB HIỆN TẠI (Không mở thêm tab mới làm phiền)
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const currentTab = (tabs && tabs.length > 0) ? tabs[0] : null;
+
+            const initBotStorage = (targetTabId) => {
+                chrome.storage.local.set({
+                    isBotRunning: true,
+                    isScheduleWaiting: false,
+                    targetConfigs: randomizedConfigs,
+                    originalTargetConfigs: rawConfigs,
+                    retryQueue: [],
+                    currentConfigIndex: 0,
+                    isRetryPhase: false,
+                    tabId: targetTabId,
+                    step: "SWITCHING"
+                }, () => {
+                    addLog(`🚀 Bắt đầu chạy tiến trình trên Tab hiện tại cho ${randomizedConfigs.length} Page (Nick đầu tiên: "${randomizedConfigs[0].pageName}")...`);
+                });
+            };
+
+            if (currentTab && currentTab.id) {
+                // Chuyển hướng ngay tab hiện tại sang Facebook Bookmarks
+                chrome.tabs.update(currentTab.id, { url: "https://m.facebook.com/bookmarks/" }, () => {
+                    initBotStorage(currentTab.id);
+                });
+            } else {
+                // Trường hợp ngoại lệ nếu không tìm thấy tab hiện tại thì mới tạo tab mới
+                chrome.tabs.create({
+                    url: "https://m.facebook.com/bookmarks/",
+                    active: true
+                }, (tab) => {
+                    initBotStorage(tab.id);
+                });
+            }
         });
     });
 }

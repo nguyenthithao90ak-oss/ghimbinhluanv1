@@ -107,6 +107,69 @@ var simulateClick = (element) => {
     element.click();
 };
 
+// =============================================
+// 🌐 TÍNH NĂNG 1: NHẬN DIỆN MẠNG LAG & ĐIỀU CHỈNH CHỜ THÔNG MINH
+// =============================================
+async function smartWaitForNetworkAndLoad(context = "") {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        logMsg(`⚠️ [MẠNG MẤT KẾT NỐI] Trình duyệt đang offline! Chờ 5s để mạng phục hồi... (${context})`);
+        await delay(5000, 7000);
+    }
+
+    let lagWaitCount = 0;
+    const maxLagWait = 3;
+
+    while (lagWaitCount < maxLagWait) {
+        const isBusy = Array.from(document.querySelectorAll('div[role="progressbar"], [aria-busy="true"], [aria-label*="Loading" i], [aria-label*="Đang tải" i], div[data-sigil*="loading"]')).some(el => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && r.top < window.innerHeight;
+        });
+
+        if (isBusy) {
+            lagWaitCount++;
+            logMsg(`⏳ [SMART LAG DETECTOR] Phát hiện Facebook đang tải/mạng lag (${context}). Tự động chờ thêm... (Lần ${lagWaitCount}/${maxLagWait})`);
+            await delay(2000, 3000);
+        } else {
+            break;
+        }
+    }
+}
+
+// =============================================
+// 🎯 TÍNH NĂNG 2: XÁC NHẬN THAO TÁC & SMART RETRY TỰ ĐỘNG
+// =============================================
+async function smartClickAndVerify(findFn, verifyFn, description, maxRetries = 3, waitMs = 2500) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        await smartWaitForNetworkAndLoad(description);
+        const el = findFn();
+        if (!el) {
+            logMsg(`⏳ [Lần ${attempt}/${maxRetries}] Chưa thấy "${description}". Chờ ${waitMs/1000}s thử lại...`);
+            await delay(waitMs, waitMs + 1000);
+            continue;
+        }
+
+        logMsg(`🎯 [Lần ${attempt}/${maxRetries}] Đang click: ${description}...`);
+        simulateClick(el);
+        await delay(waitMs, waitMs + 1000);
+
+        if (typeof verifyFn === 'function') {
+            const isVerified = verifyFn();
+            if (isVerified) {
+                logMsg(`✅ [XÁC NHẬN THÀNH CÔNG] Đã hoàn thành: ${description}!`);
+                return true;
+            } else {
+                logMsg(`🔄 [CHƯA PHẢN HỒI] Thao tác "${description}" chưa có kết quả (do mạng lag hoặc trượt click). Tự động bấm lại lần ${attempt + 1}/${maxRetries}...`);
+                await delay(1500, 2500);
+            }
+        } else {
+            logMsg(`✅ ĐÃ CLICK: ${description}`);
+            return true;
+        }
+    }
+    logMsg(`❌ [THẤT BẠI SAU ${maxRetries} LẦN] Không thể hoàn tất: ${description}`);
+    return false;
+}
+
 function cleanName(str) {
     if (!str) return '';
     return str.toString()
@@ -175,7 +238,14 @@ function withTimeout(promise, ms, label) {
 }
 
 async function switchToAccount(targetPageName) {
-    const SWITCH_TIMEOUT_MS = 60000; // Tối đa 60 giây cho toàn bộ quá trình đổi nick
+    // 🔒 SINGLE-INSTANCE LOCK: Chặn nhiều tiến trình đổi nick chạy song song
+    if (window.__switcherRunning) {
+        console.log(`[Switcher] ⚠️ Đã có tiến trình đổi nick đang chạy! Bỏ qua lần gọi thừa này.`);
+        return;
+    }
+    window.__switcherRunning = true;
+
+    const SWITCH_TIMEOUT_MS = 90000; // Tối đa 90 giây cho toàn bộ quá trình đổi nick (tăng từ 60s do chờ danh sách TK load lâu hơn)
     const startTime = Date.now();
     
     // Hàm kiểm tra còn thời gian không
@@ -288,8 +358,49 @@ async function switchToAccount(targetPageName) {
             return;
         }
 
-        // BƯỚC 2: Chờ Popup "Your Pages and profiles" mở ra
-        await delay(3500, 5000); // Chờ trang load xong sau khi đổi nick
+        // BƯỚC 2: Chờ danh sách "Trang và trang cá nhân của bạn" mở ra
+        // Tăng delay lên 8-10s để chờ Facebook load xong
+        await delay(8000, 10000);
+
+        // KIỂM TRA: Danh sách tài khoản đã thực sự mở chưa?
+        // Nếu chưa (bị lag), thử bấm lại mũi tên lần nữa
+        function isAccountListOpen() {
+            // Cách 1: Tìm dialog popup chứa danh sách nick
+            const dialog = document.querySelector('div[role="dialog"]');
+            if (dialog) {
+                const hasNames = dialog.querySelectorAll('span, div, label').length > 5;
+                if (hasNames) return true;
+            }
+            // Cách 2: Tìm danh sách nick có radio buttons
+            const radios = document.querySelectorAll('[role="radio"], input[type="radio"]');
+            if (radios.length > 0) return true;
+            // Cách 3: Tìm dòng chứa tên nick trong vùng hiển thị (có nhiều avatar/tên trang)
+            const nickItems = Array.from(document.querySelectorAll('span')).filter(el => {
+                const txt = (el.innerText || '').trim();
+                const r = el.getBoundingClientRect();
+                return txt.length > 2 && txt.length < 100 && r.top > 100 && r.height > 10 && r.height < 50;
+            });
+            // Nếu tìm thấy > 3 dòng text giống tên nick/trang thì coi như đã mở
+            if (nickItems.length > 3) return true;
+            return false;
+        }
+
+        // Thử kiểm tra tối đa 3 lần, nếu chưa mở thì bấm lại mũi tên
+        for (let retryClick = 0; retryClick < 3; retryClick++) {
+            if (isAccountListOpen()) {
+                logMsg("✅ Danh sách tài khoản ĐÃ MỞ! Tiếp tục tìm nick...");
+                break;
+            }
+            if (isTimedOut()) break;
+
+            logMsg(`⏳ [Lần ${retryClick + 1}/3] Danh sách chưa mở (có thể bị lag). Thử bấm lại mũi tên...`);
+            // Tìm lại nút mũi tên và bấm lại
+            const retryBtn = document.querySelector('[aria-label*="Switch" i], [aria-label*="Chuyển" i], [aria-label*="Đổi" i]') || switchBtn;
+            if (retryBtn) {
+                simulateClick(retryBtn);
+            }
+            await delay(5000, 7000); // Chờ thêm 5-7s
+        }
         
         // Kiểm tra timeout trước khi vào vòng scroll dài
         if (isTimedOut()) {
@@ -415,6 +526,8 @@ async function switchToAccount(targetPageName) {
                     action: "alreadyTargetAccount",
                     pageName: targetPageName
                 });
+                await delay(800, 1200);
+                window.location.href = "https://m.facebook.com/profile.php";
                 return; // DỪNG NGAY! KHÔNG BẤM CHỌN LẠI!
             }
 
@@ -435,6 +548,8 @@ async function switchToAccount(targetPageName) {
                      action: "alreadyTargetAccount",
                      pageName: targetPageName
                  });
+                 await delay(800, 1200);
+                 window.location.href = "https://m.facebook.com/profile.php";
                  return;
             }
         } else {
@@ -453,6 +568,8 @@ async function switchToAccount(targetPageName) {
         }
         // Dù lỗi gì cũng xếp nick này vào retry queue, không được bỏ qua vĩnh viễn
         try { safeSendMessage({ action: "accountLagged", pageName: targetPageName }); } catch(ex) {}
+    } finally {
+        window.__switcherRunning = false;
     }
 }
 
