@@ -1,35 +1,112 @@
 
 // --------------------------------------------------------------------------------------
-// 📱 GIẢ LẬP THIẾT BỊ DI ĐỘNG TOÀN DIỆN (ANDROID MOBILE EMULATION)
+// 📱 GIẢ LẬP THIẾT BỊ DI ĐỘNG TOÀN DIỆN - ĐỌC TỪ STORAGE (DYNAMIC DEVICE EMULATION)
 // --------------------------------------------------------------------------------------
-(function emulateMobileDevice() {
+const DEVICE_DB_CONTENT = {
+    'samsung_s24': {
+        ua: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        appVer: '5.0 (Linux; Android 14; SM-S928B)',
+        platform: 'Linux armv8l',
+        uadPlatform: 'Android',
+        model: 'SM-S928B',
+        platformVer: '14.0.0',
+        arch: 'arm64', bitness: '64',
+        brands: [{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 5,
+        deviceMemory: 12,
+        hardwareConcurrency: 8
+    },
+    'iphone_14_pro_max': {
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        appVer: '5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X)',
+        platform: 'iPhone',
+        uadPlatform: 'iOS',
+        model: 'iPhone15,3',
+        platformVer: '17.5.1',
+        arch: 'arm64', bitness: '64',
+        brands: [{brand:"Safari",version:"17"},{brand:"Not/A)Brand",version:"8"}],
+        vendor: 'Apple Computer, Inc.',
+        maxTouch: 5,
+        deviceMemory: 6,
+        hardwareConcurrency: 6
+    },
+    'iphone_15': {
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        appVer: '5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X)',
+        platform: 'iPhone',
+        uadPlatform: 'iOS',
+        model: 'iPhone16,2',
+        platformVer: '17.5.1',
+        arch: 'arm64', bitness: '64',
+        brands: [{brand:"Safari",version:"17"},{brand:"Not/A)Brand",version:"8"}],
+        vendor: 'Apple Computer, Inc.',
+        maxTouch: 5,
+        deviceMemory: 8,
+        hardwareConcurrency: 6
+    },
+    'xiaomi_14': {
+        ua: 'Mozilla/5.0 (Linux; Android 14; 23116PN5BC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        appVer: '5.0 (Linux; Android 14; 23116PN5BC)',
+        platform: 'Linux aarch64',
+        uadPlatform: 'Android',
+        model: '23116PN5BC',
+        platformVer: '14.0.0',
+        arch: 'arm64', bitness: '64',
+        brands: [{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 5,
+        deviceMemory: 12,
+        hardwareConcurrency: 8
+    },
+    'pixel_8': {
+        ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        appVer: '5.0 (Linux; Android 14; Pixel 8 Pro)',
+        platform: 'Linux aarch64',
+        uadPlatform: 'Android',
+        model: 'Pixel 8 Pro',
+        platformVer: '14.0.0',
+        arch: 'arm64', bitness: '64',
+        brands: [{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 5,
+        deviceMemory: 12,
+        hardwareConcurrency: 8
+    }
+};
+
+(async function emulateMobileDevice() {
     try {
-        const mobileUA = "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36";
-        
-        // Ghi đè navigator.userAgent & platform
-        try { Object.defineProperty(navigator, 'userAgent', { get: () => mobileUA, configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'appVersion', { get: () => "5.0 (Linux; Android 14; SM-S928B)", configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'platform', { get: () => "Linux armv8l", configurable: true }); } catch (e) {}
-        try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5, configurable: true }); } catch (e) {}
+        // Đọc device profile đã chọn từ storage
+        const storageData = await new Promise(resolve => {
+            chrome.storage.local.get(['deviceProfileKey'], resolve);
+        });
+        const key = storageData.deviceProfileKey || 'samsung_s24';
+        const dev = DEVICE_DB_CONTENT[key] || DEVICE_DB_CONTENT['samsung_s24'];
+
+        // Ghi đè navigator.userAgent & platform ĐÚNG THEO THIẾT BỊ ĐÃ CHỌN
+        try { Object.defineProperty(navigator, 'userAgent', { get: () => dev.ua, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'appVersion', { get: () => dev.appVer, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'platform', { get: () => dev.platform, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => dev.maxTouch, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'vendor', { get: () => dev.vendor, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'deviceMemory', { get: () => dev.deviceMemory, configurable: true }); } catch (e) {}
+        try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => dev.hardwareConcurrency, configurable: true }); } catch (e) {}
 
         // Ghi đè navigator.userAgentData (Client Hints trong Javascript)
-        if (navigator.userAgentData) {
+        if (navigator.userAgentData || dev.uadPlatform === 'Android') {
             try {
                 Object.defineProperty(navigator, 'userAgentData', {
                     get: () => ({
-                        brands: [
-                            { brand: "Chromium", version: "128" },
-                            { brand: "Google Chrome", version: "128" },
-                            { brand: "Not;A=Brand", version: "24" }
-                        ],
+                        brands: dev.brands,
                         mobile: true,
-                        platform: "Android",
+                        platform: dev.uadPlatform,
                         getHighEntropyValues: async () => ({
-                            architecture: "arm64",
-                            bitness: "64",
-                            model: "SM-S928B",
-                            platform: "Android",
-                            platformVersion: "14.0.0",
+                            architecture: dev.arch,
+                            bitness: dev.bitness,
+                            model: dev.model,
+                            platform: dev.uadPlatform,
+                            platformVersion: dev.platformVer,
                             uaFullVersion: "128.0.6613.88"
                         })
                     }),
@@ -37,7 +114,21 @@
                 });
             } catch (e) {}
         }
-    } catch (err) {}
+
+        // iPhone Safari không có userAgentData -> xóa nó
+        if (dev.uadPlatform === 'iOS') {
+            try {
+                Object.defineProperty(navigator, 'userAgentData', {
+                    get: () => undefined,
+                    configurable: true
+                });
+            } catch (e) {}
+        }
+
+        console.log(`📱 [DEVICE] Giả lập: ${key} | Platform: ${dev.platform} | Model: ${dev.model}`);
+    } catch (err) {
+        console.error('Lỗi giả lập thiết bị:', err);
+    }
 })();
 
 // removed duplicate var (minSec, maxSec = minSec) => {

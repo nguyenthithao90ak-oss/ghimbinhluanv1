@@ -58,6 +58,20 @@ const DEVICE_DATABASE = {
         dpr: 3.5,
         gpuVendor: 'Qualcomm',
         gpuRenderer: 'Adreno (TM) 750'
+    },
+    'pixel_8': {
+        name: 'Google Pixel 8 Pro',
+        ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
+        platform: 'Android',
+        model: 'Pixel 8 Pro',
+        version: '14.0.0',
+        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
+        jsPlatform: 'Linux aarch64',
+        screenWidth: 412,
+        screenHeight: 915,
+        dpr: 3.5,
+        gpuVendor: 'Google',
+        gpuRenderer: 'Mali-G715'
     }
 };
 
