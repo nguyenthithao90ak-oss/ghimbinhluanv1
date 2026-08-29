@@ -272,24 +272,31 @@ function renderLogs() {
         if (!logBox) return;
 
         if (logs.length === 0) {
-            logBox.innerText = "Đang sẵn sàng... Vui lòng bấm Bắt Đầu.";
+            logBox.innerHTML = "Đang sẵn sàng... Vui lòng bấm Bắt Đầu.";
             lastRenderedLogsText = "";
             return;
         }
 
         const newText = logs.join('\n');
         if (newText === lastRenderedLogsText) {
-            return; // Nội dung không đổi, không can thiệp vị trí cuộn
+            return;
         }
 
-        // Kiểm tra xem người dùng có đang ở sát đáy không (cách đáy dưới 40px)
         const isNearBottom = (logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight) < 40;
         
         lastRenderedLogsText = newText;
-        logBox.innerText = newText;
 
-        // Chỉ tự cuộn xuống đáy nếu người dùng đang ở sát đáy. 
-        // Nếu người dùng đã lướt lên để xem log cũ -> GIỮ NGUYÊN VỊ TRÍ, TUYỆT ĐỐI KHÔNG TỰ NHẢY!
+        // 🎨 HIGHLIGHT TÊN NICK MÀU ĐỎ + TO HƠN để dễ đọc
+        const htmlLines = logs.map(line => {
+            // Escape HTML
+            let safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            // Highlight tên nick trong dấu ngoặc kép "..." -> đỏ, to, đậm
+            safe = safe.replace(/&quot;([^&]+)&quot;/g, '<span style="color:#ff4444;font-size:13px;font-weight:bold;">"$1"</span>');
+            safe = safe.replace(/"([^"]+)"/g, '<span style="color:#ff4444;font-size:13px;font-weight:bold;">"$1"</span>');
+            return safe;
+        });
+        logBox.innerHTML = htmlLines.join('\n');
+
         if (isNearBottom) {
             logBox.scrollTop = logBox.scrollHeight;
         }

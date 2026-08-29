@@ -30,12 +30,12 @@
 </head>
 <body>
     <h3 style="display:none;">🤖 AutoPinBot Matrix Pro V4</h3>
-    <button id="btnOpenDashboard" style="width:100%; padding:8px; background:linear-gradient(135deg, #1877f2, #0052c2); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-bottom:10px;">🖥️ MỞ GIAO DIỆN TOÀN MÀN HÌNH (DASHBOARD)</button>
+    <button id="btnOpenDashboard" style="display:none; width:100%; padding:8px; background:linear-gradient(135deg, #1877f2, #0052c2); color:white; border:none; border-radius:5px; font-weight:bold; cursor:pointer; font-size:12px; margin-bottom:10px;">🖥️ MỞ GIAO DIỆN TOÀN MÀN HÌNH (DASHBOARD)</button>
     
-    <div class="tabs">
+    <div class="tabs" style="display:none;">
         <button class="tab-btn active" id="tabRunBtn">⚡ CHẠY AUTO</button>
         <button class="tab-btn" id="tabConfigBtn">⚙️ CẤU HÌNH</button>
-        <button class="tab-btn" id="tabHistoryBtn">📊 LỊCH SỬ & BACKUP</button>
+        <button class="tab-btn" id="tabHistoryBtn">📊 LỊCH SỬ &amp; BACKUP</button>
     </div>
 
     <!-- TAB 1: CHẠY AUTO & LOG GIÁM SÁT -->
@@ -56,7 +56,7 @@
 
 
         <!-- PROMINENT DEVICE SELECTOR & BADGE -->
-        <div class="card" style="margin-bottom: 10px; background: #f0f7ff; border: 1.5px solid #1877f2; padding: 10px; border-radius: 6px;">
+        <div class="card" style="display:none; margin-bottom: 10px; background: #f0f7ff; border: 1.5px solid #1877f2; padding: 10px; border-radius: 6px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                 <span style="font-size: 11px; font-weight: bold; color: #1877f2;">📱 GIẢ LẬP ĐIỆN THOẠI CỐ ĐỊNH:</span>
                 <span id="deviceActiveLabel" style="font-size: 10px; background: #28a745; color: white; padding: 2px 6px; border-radius: 10px; font-weight: bold;">Đang nạp...</span>
