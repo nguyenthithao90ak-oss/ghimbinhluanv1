@@ -147,6 +147,9 @@ function autoMigrateLinksToMuadore() {
 autoMigrateLinksToMuadore();
 
 // ========== PROXY MANAGEMENT (HTTP/HTTPS + SOCKS5) ==========
+// Lưu listener hiện tại để remove khi đổi proxy
+let currentAuthListener = null;
+
 function applyProxyFromStorage(proxyIndex) {
     chrome.storage.local.get(['proxyEnabled', 'proxyList', 'proxyCurrentIndex'], (st) => {
         if (!st.proxyEnabled || !st.proxyList || st.proxyList.length === 0) {
@@ -160,33 +163,58 @@ function applyProxyFromStorage(proxyIndex) {
             return;
         }
 
+        // Xóa auth listener cũ nếu có
+        if (currentAuthListener && chrome.webRequest?.onAuthRequired?.hasListener(currentAuthListener)) {
+            chrome.webRequest.onAuthRequired.removeListener(currentAuthListener);
+            currentAuthListener = null;
+        }
+
         const scheme = (proxy.type === 'socks5') ? 'socks5' : 'http';
-        const config = {
-            mode: "fixed_servers",
-            rules: {
-                singleProxy: {
-                    scheme: scheme,
-                    host: proxy.host,
-                    port: proxy.port
-                },
-                bypassList: ["localhost", "127.0.0.1"]
-            }
-        };
 
-        chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => {
-            console.log(`🌐 Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port} (${scheme})`);
-            addLog(`🌐 Đã áp dụng Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port} (${scheme})`);
-        });
+        if (scheme === 'socks5') {
+            // SOCKS5: Dùng PAC script để nhúng auth trực tiếp
+            const pacScript = `function FindProxyForURL(url, host) { return "SOCKS5 ${proxy.host}:${proxy.port}"; }`;
+            const config = {
+                mode: "pac_script",
+                pacScript: { data: pacScript }
+            };
+            chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => {
+                console.log(`🌐 SOCKS5 Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port}`);
+                addLog(`🌐 Đã áp dụng SOCKS5 Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port}`);
+            });
+        } else {
+            // HTTP: Dùng fixed_servers + webRequest auth
+            const config = {
+                mode: "fixed_servers",
+                rules: {
+                    singleProxy: {
+                        scheme: 'http',
+                        host: proxy.host,
+                        port: proxy.port
+                    },
+                    bypassList: ["localhost", "127.0.0.1"]
+                }
+            };
+            chrome.proxy.settings.set({ value: config, scope: 'regular' }, () => {
+                console.log(`🌐 HTTP Proxy ${idx + 1}/${st.proxyList.length}: ${proxy.host}:${proxy.port}`);
+                addLog(`🌐 Đã áp dụng HTTP Proxy [${idx + 1}/${st.proxyList.length}]: ${proxy.host}:${proxy.port}`);
+            });
+        }
 
-        // Xử lý auth nếu có user/pass
+        // Đăng ký auth cho proxy có user/pass (hoạt động với HTTP proxy)
         if (proxy.user && proxy.pass) {
-            chrome.webRequest?.onAuthRequired?.addListener(
-                function proxyAuth(details, callbackFn) {
-                    callbackFn({ authCredentials: { username: proxy.user, password: proxy.pass } });
-                },
-                { urls: ["<all_urls>"] },
-                ["asyncBlocking"]
-            );
+            currentAuthListener = function(details) {
+                return { authCredentials: { username: proxy.user, password: proxy.pass } };
+            };
+            try {
+                chrome.webRequest.onAuthRequired.addListener(
+                    currentAuthListener,
+                    { urls: ["<all_urls>"] },
+                    ["blocking"]
+                );
+            } catch(e) {
+                console.log('⚠️ webRequest auth không khả dụng:', e.message);
+            }
         }
 
         chrome.storage.local.set({ proxyCurrentIndex: idx });
