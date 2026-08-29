@@ -1129,10 +1129,10 @@ async function runChecking(pageConfigs, targetPageName) {
         // ==========================================
         // 🎬 TIẾN TRÌNH XỬ LÝ 2 VIDEO REELS
         // ==========================================
-        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels -> Bắt đầu quy trình xử lý 2 VIDEO REELS cho "${targetPageName}"...`);
+        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels -> Bắt đầu quy trình xử lý 3 VIDEO REELS cho "${targetPageName}"...`);
 
         // --- VIDEO REELS 1 ---
-        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [1/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 1 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [1/3] BẮT ĐẦU XỬ LÝ VIDEO REELS 1 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
         const firstEl = reelLinks[0];
         const firstRect = firstEl.getBoundingClientRect();
         if (firstRect.top > window.innerHeight * 0.7) {
@@ -1163,7 +1163,7 @@ async function runChecking(pageConfigs, targetPageName) {
         // 🔙 QUAY LẠI TRANG PROFILE RỒI CLICK VIDEO THỨ 2 TRỰC TIẾP
         // ============================================================
         // --- VIDEO REELS 2 ---
-        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/2] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/3] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
         // BƯỚC 1: QUAY LẠI TRANG PROFILE (REELS TAB)
         logMsg(`🔙 Dùng history.back() để quay về trang Profile...`);
@@ -1230,34 +1230,98 @@ async function runChecking(pageConfigs, targetPageName) {
             logMsg(`⚠️ Video Reels 2: Thao tác không thành công.`);
         }
 
+        // ============================================================
+        // 🔙 QUAY LẠI TRANG PROFILE RỒI CLICK VIDEO THỨ 3 TRỰC TIẾP
+        // ============================================================
+        // --- VIDEO REELS 3 ---
+        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [3/3] BẮT ĐẦU XỬ LÝ VIDEO REELS 3 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+        // BƯỚC 1: QUAY LẠI TRANG PROFILE (REELS TAB)
+        logMsg(`🔙 Dùng history.back() để quay về trang Profile...`);
+        window.history.back();
+        await delay(2, 3);
+        if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
+            logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần...`);
+            window.history.back();
+            await delay(2, 3);
+        }
+        logMsg(`📍 Đang ở: ${window.location.href}`);
+        await delay(2, 3);
+
+        // BƯỚC 2: TÌM LẠI DANH SÁCH VIDEO REELS TRÊN TRANG PROFILE
+        logMsg(`🔍 Tìm lại danh sách Video Reels trên trang Profile...`);
+        let reelLinks3 = [];
+        for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
+            reelLinks3 = findReelLinks();
+            if (reelLinks3.length >= 3) break;
+            logMsg(`🔍 [Lần ${findAttempt + 1}/5] Tìm thấy ${reelLinks3.length} Reels, chờ thêm...`);
+            await delay(1, 2);
+        }
+
+        // BƯỚC 3: CLICK THẲNG VÀO VIDEO THỨ 3 TRONG LƯỚI
+        if (reelLinks3.length >= 3) {
+            const thirdEl = reelLinks3[2];
+            const tr = thirdEl.getBoundingClientRect();
+            logMsg(`🎯 Tìm thấy ${reelLinks3.length} Reels. Click thẳng vào Video thứ 3 (top=${Math.round(tr.top)}, left=${Math.round(tr.left)})...`);
+            if (tr.top > window.innerHeight * 0.7) {
+                window.scrollBy(0, tr.top - window.innerHeight * 0.4);
+                await delay(1, 2);
+            }
+            await safeClick(thirdEl);
+        } else {
+            logMsg(`⚠️ Chỉ thấy ${reelLinks3.length} Reels, không đủ 3 video!`);
+        }
+
+        // ĐỢI VIDEO 3 LOAD
+        await delay(3, 4);
+
+        // GIẢ LẬP XEM VIDEO 3 TỰ NHIÊN
+        const watchSecs3 = Math.floor(Math.random() * 5) + 3;
+        logMsg(`🎬 Giả lập xem Video Reels 3 tự nhiên (${watchSecs3} giây)...`);
+        await delay(watchSecs3);
+        await humanScrollJitter();
+
+        const res3 = await processSingleReel(cfg, targetPageName, 3);
+        let statusV3 = "";
+        if (res3 === "ALREADY_EXISTS") {
+            statusV3 = "V3: Đã ghim sẵn từ trước";
+            logMsg(`ℹ️ Video Reels 3: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
+        } else if (res3 === true || res3 === "POSTED") {
+            statusV3 = "V3: Đã đăng mới & ghim";
+            logMsg(`✅ Video Reels 3: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
+        } else {
+            statusV3 = "V3: Thao tác lỗi";
+            logMsg(`⚠️ Video Reels 3: Thao tác không thành công.`);
+        }
+
         // ==========================================
         // 🎉 TỔNG KẾT VÀ CHUYỂN NICK TIẾP THEO
         // ==========================================
-        logMsg(`\n🎉 HOÀN TẤT 2 VIDEO CHO "${targetPageName}": [${statusV1}] | [${statusV2}]`);
+        logMsg(`\n🎉 HOÀN TẤT 3 VIDEO CHO "${targetPageName}": [${statusV1}] | [${statusV2}] | [${statusV3}]`);
         
-        const bothAlready = (res1 === "ALREADY_EXISTS" && res2 === "ALREADY_EXISTS");
-        const anyPosted = (res1 === true || res1 === "POSTED" || res2 === true || res2 === "POSTED");
+        const allAlready = (res1 === "ALREADY_EXISTS" && res2 === "ALREADY_EXISTS" && res3 === "ALREADY_EXISTS");
+        const anyPosted = (res1 === true || res1 === "POSTED" || res2 === true || res2 === "POSTED" || res3 === true || res3 === "POSTED");
 
-        if (bothAlready) {
+        if (allAlready) {
             safeSendMessage({ 
                 action: "pageCompleted", 
                 alreadyExisted: true,
-                summaryStatus: "ℹ️ Cả 2 Reels đã ghim sẵn",
-                summaryDetails: `${statusV1} | ${statusV2}`
+                summaryStatus: "ℹ️ Cả 3 Reels đã ghim sẵn",
+                summaryDetails: `${statusV1} | ${statusV2} | ${statusV3}`
             });
         } else if (anyPosted) {
             safeSendMessage({ 
                 action: "pageCompleted", 
                 newlyPosted: true,
-                summaryStatus: "✅ Hoàn tất 2 Reels",
-                summaryDetails: `${statusV1} | ${statusV2}`
+                summaryStatus: "✅ Hoàn tất 3 Reels",
+                summaryDetails: `${statusV1} | ${statusV2} | ${statusV3}`
             });
         } else {
             safeSendMessage({ 
                 action: "pageCompleted", 
                 failed: true,
-                summaryStatus: "⚠️ Xong 2 Reels (có lỗi)",
-                summaryDetails: `${statusV1} | ${statusV2}`
+                summaryStatus: "⚠️ Xong 3 Reels (có lỗi)",
+                summaryDetails: `${statusV1} | ${statusV2} | ${statusV3}`
             });
         }
 
