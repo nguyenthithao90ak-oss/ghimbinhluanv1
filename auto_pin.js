@@ -1163,14 +1163,17 @@ async function runChecking(pageConfigs, targetPageName) {
         let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;
 
         // ==========================================
-        // 🎬 ĐỌC SỐ VIDEO TỪ CẤU HÌNH
+        // 🎬 ĐỌC SỐ VIDEO TỪ CẤU HÌNH (Theo khung giờ)
         // ==========================================
-        let maxReels = 2; // Mặc định
+        // Mặc định theo giờ: 00-08h→1, 08-17h→2, 17-24h→3
+        const currentHour = new Date().getHours();
+        const timeBasedDefault = (currentHour >= 0 && currentHour < 8) ? 1 : (currentHour >= 8 && currentHour < 17) ? 2 : 3;
+        let maxReels = timeBasedDefault;
         try {
             const rcData = await new Promise(resolve => {
                 chrome.storage.local.get(['reelsCount'], resolve);
             });
-            maxReels = rcData.reelsCount || 2;
+            maxReels = rcData.reelsCount || timeBasedDefault;
         } catch(e) {}
         
         logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels -> Bắt đầu xử lý ${maxReels} VIDEO REELS cho "${targetPageName}"...`);

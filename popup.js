@@ -147,9 +147,20 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
 
 // Phục hồi trạng thái select box khi mở popup
 chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'scheduleDays', 'soundNotifyEnable', 'reelsCount'], (st) => {
+    // Tự động chọn số Reels theo khung giờ
     const reelsEl = document.getElementById('reelsCount');
+    const hintEl = document.getElementById('reelsScheduleHint');
+    const hour = new Date().getHours();
+    const timeDefault = (hour >= 0 && hour < 8) ? 1 : (hour >= 8 && hour < 17) ? 2 : 3;
+    const timeLabel = timeDefault === 1 ? '🌙 00-08h' : timeDefault === 2 ? '☀️ 08-17h' : '🌆 17-24h';
+    
     if (st.reelsCount && reelsEl) {
         reelsEl.value = st.reelsCount;
+    } else if (reelsEl) {
+        reelsEl.value = timeDefault;
+    }
+    if (hintEl) {
+        hintEl.textContent = `(Khung giờ: ${timeLabel} → ${timeDefault} video)`;
     }
     if (st.loopStrategy) {
         document.getElementById('loopStrategy').value = st.loopStrategy;
