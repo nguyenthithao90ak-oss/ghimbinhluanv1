@@ -305,13 +305,19 @@ function rotateProxyForNextNick() {
 }
 
 // 🔄 RESET TRẠNG THÁI KHI CHROME KHỞI ĐỘNG LẠI (TẮT PC / ĐÓNG CHROME)
-// Khi Chrome mở lại, bot chắc chắn không còn chạy -> reset về trạng thái dừng
+// Khi Chrome mở lại, bot chắc chắn không còn chạy -> reset sạch về trạng thái ban đầu
 chrome.runtime.onStartup.addListener(() => {
-    console.log('🔄 Chrome khởi động lại -> Reset trạng thái bot về DỪNG.');
+    console.log('🔄 Chrome khởi động lại -> Reset TOÀN BỘ trạng thái bot.');
     chrome.storage.local.set({
         isBotRunning: false,
         isScheduleWaiting: false,
-        step: "STOPPED"
+        step: "STOPPED",
+        currentConfigIndex: 0,
+        retryQueue: [],
+        completedNicks: [],
+        isRetryPhase: false,
+        botLogs: ['[🔄] Chrome vừa khởi động lại - Bot đã reset, sẵn sàng chạy mới!'],
+        sessionHistory: []
     });
     chrome.alarms.clearAll(() => {
         chrome.alarms.create('telegramPoll', { periodInMinutes: 0.25 });
