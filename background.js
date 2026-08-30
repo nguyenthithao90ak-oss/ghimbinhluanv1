@@ -1296,63 +1296,69 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     }
 });
 
+function triggerAutoPin(tId, config) {
+    chrome.storage.local.set({ step: "PINNING" });
+    setTimeout(() => {
+        addLog(`🎯 Inject auto_pin.js cho Page "${config.pageName}"...`);
+        // ⏰ ĐẶT WATCHDOG 5 PHÚT: nếu nick không xong trong 5 phút sẽ tự động bỏ qua
+        chrome.alarms.clear('nickSessionTimeout', () => {
+            chrome.alarms.create('nickSessionTimeout', { delayInMinutes: 5 });
+            addLog(`⏱️ Watchdog 5 phút bắt đầu đếm cho Nick "${config.pageName}"`);
+        });
+        chrome.scripting.executeScript({
+            target: { tabId: tId },
+            files: ['ai_supervisor.js', 'auto_pin.js']
+        }, () => {
+            chrome.tabs.sendMessage(tId, { action: "runChecking", pageConfigs: [config], targetPageName: config.pageName });
+        });
+    }, 3000);
+}
+
 chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
     if (changeInfo.status !== 'complete') return;
 
     chrome.storage.local.get(['isBotRunning', 'tabId', 'step', 'targetConfigs', 'currentConfigIndex'], (state) => {
         if (!state.isBotRunning || tId !== state.tabId) return;
+        const config = state.targetConfigs && state.targetConfigs[state.currentConfigIndex];
+        if (!config) return;
 
-        if (state.step === "WAIT_PROFILE" && tab.url.includes('profile')) {
-            chrome.storage.local.set({ step: "PINNING" });
-            setTimeout(() => {
-                const config = state.targetConfigs[state.currentConfigIndex];
-                addLog(`🎯 Inject auto_pin.js cho Page "${config.pageName}"...`);
-                // ⏰ ĐẶT WATCHDOG 5 PHÚT: nếu nick không xong trong 5 phút sẽ tự động bỏ qua
-                chrome.alarms.clear('nickSessionTimeout', () => {
-                    chrome.alarms.create('nickSessionTimeout', { delayInMinutes: 5 });
-                    addLog(`⏱️ Watchdog 5 phút bắt đầu đếm cho Nick "${config.pageName}"`);
-                });
-                chrome.scripting.executeScript({
-                    target: { tabId: tId },
-                    files: ['ai_supervisor.js', 'auto_pin.js']
-                }, () => {
-                    chrome.tabs.sendMessage(tId, { action: "runChecking", pageConfigs: [config], targetPageName: config.pageName });
-                });
-            }, 3000);
+        const url = tab.url || "";
+        if (!url.includes('facebook.com')) return;
+
+        const isBookmarks = url.includes('/bookmarks/') || url.includes('/menu/');
+        const isPureHome = /^https?:\/\/(m|www)\.facebook\.com\/?(\?.*)?$/i.test(url) || url.includes('/home.php');
+        const isProfile = url.includes('profile') || (!isBookmarks && !isPureHome && !url.includes('/login') && !url.includes('/checkpoint'));
+
+        if (state.step === "WAIT_PROFILE" || state.step === "NAVIGATING_PROFILE") {
+            if (isProfile) {
+                triggerAutoPin(tId, config);
+            } else if (isPureHome) {
+                addLog(`📍 Đang ở Trang Chủ Facebook -> Tự động chuyển vào Trang Cá Nhân cho "${config.pageName}"...`);
+                setTimeout(() => {
+                    chrome.tabs.update(tId, { url: "https://m.facebook.com/profile.php" });
+                }, 1500);
+            } else if (isBookmarks) {
+                setTimeout(() => {
+                    chrome.tabs.update(tId, { url: "https://m.facebook.com/profile.php" });
+                }, 1500);
+            }
         }
-        else if (state.step === "NAVIGATING_PROFILE" && tab.url.includes('profile')) {
-            chrome.storage.local.set({ step: "PINNING" });
-            setTimeout(() => {
-                const config = state.targetConfigs[state.currentConfigIndex];
-                addLog(`🎯 Inject auto_pin.js cho Page "${config.pageName}"...`);
-                // ⏰ ĐẶT WATCHDOG 5 PHÚT: nếu nick không xong trong 5 phút sẽ tự động bỏ qua
-                chrome.alarms.clear('nickSessionTimeout', () => {
-                    chrome.alarms.create('nickSessionTimeout', { delayInMinutes: 5 });
-                    addLog(`⏱️ Watchdog 5 phút bắt đầu đếm cho Nick "${config.pageName}"`);
-                });
-                chrome.scripting.executeScript({
-                    target: { tabId: tId },
-                    files: ['ai_supervisor.js', 'auto_pin.js']
-                }, () => {
-                    chrome.tabs.sendMessage(tId, { action: "runChecking", pageConfigs: [config], targetPageName: config.pageName });
-                });
-            }, 3000);
-        }
-        else if (state.step === "SWITCHING" && tab.url.includes('/bookmarks/')) {
-            setTimeout(() => {
-                chrome.scripting.executeScript({
-                    target: { tabId: tId },
-                    files: ['account_switcher.js']
-                }, () => {
-                    chrome.tabs.sendMessage(tId, { action: "doSwitchAccount", targetPageName: state.targetConfigs[state.currentConfigIndex].pageName });
-                });
-            }, 2000);
-        }
-        else if (state.step === "SWITCHING" && !tab.url.includes('/bookmarks/') && !tab.url.includes('profile')) {
-            chrome.storage.local.set({ step: "NAVIGATING_PROFILE" });
-            setTimeout(() => {
-                chrome.tabs.update(tId, { url: "https://m.facebook.com/profile.php" });
-            }, 2000);
+        else if (state.step === "SWITCHING") {
+            if (isBookmarks) {
+                setTimeout(() => {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tId },
+                        files: ['account_switcher.js']
+                    }, () => {
+                        chrome.tabs.sendMessage(tId, { action: "doSwitchAccount", targetPageName: config.pageName });
+                    });
+                }, 2000);
+            } else {
+                chrome.storage.local.set({ step: "SWITCHING" });
+                setTimeout(() => {
+                    chrome.tabs.update(tId, { url: "https://m.facebook.com/bookmarks/" });
+                }, 2000);
+            }
         }
     });
 });
