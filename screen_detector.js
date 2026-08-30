@@ -1,5 +1,8 @@
 // ============================================================
 // 📸 SCREEN STATE DETECTOR - BỘ QUÉT NHẬN DIỆN MÀN HÌNH
+// Guard chống khai báo lại khi re-inject
+if (window.__screenDetectorLoaded) { /* skip */ } else {
+window.__screenDetectorLoaded = true;
 // Quét URL + DOM để xác định bot đang ở màn hình nào
 // Gọi trước mỗi thao tác quan trọng để chống kẹt
 // ============================================================
@@ -314,3 +317,5 @@ async function confirmScreenState(expectedState, logFn, maxWait = 8000) {
     log(`⚠️ [XÁC NHẬN] Timeout! Mong đợi ${expectedState} nhưng đang ở ${finalScreen.state}`);
     return false;
 }
+
+} // End of guard block

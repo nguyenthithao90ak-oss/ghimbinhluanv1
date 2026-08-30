@@ -1,6 +1,12 @@
 // =============================================
 // AUTO PIN & REELS COMMENT BOT
 // =============================================
+// Guard chống inject lại trên cùng tab (SPA)
+if (window.__autoPinLoaded) {
+    console.log('[AutoPin] Script đã được inject rồi, bỏ qua.');
+} else {
+window.__autoPinLoaded = true;
+
 // =============================================
 // CORE UTILITIES
 // =============================================
@@ -197,7 +203,7 @@ async function safeClick(element) {
     await new Promise(r => setTimeout(r, Math.floor(Math.random() * 150) + 50));
     element.dispatchEvent(new MouseEvent('mouseup', opts));
     element.dispatchEvent(new MouseEvent('click', opts));
-    element.click();
+    // Bỏ element.click() thừa - gây double-click toggle nút menu/ghim
 }
 
 function findClickableElement(textOrArray) {
@@ -392,18 +398,23 @@ async function autoLikeOwnPinnedComment() {
 }
 
 // ⏱️ TIMEOUT AN TOÀN: Tự động skip video nếu bị kẹt quá lâu (mặc định 180 giây = 3 phút)
-function withTimeout(promise, timeoutMs, fallbackValue) {
+function withTimeout(promise, timeoutMs, fallbackValue, cancelToken) {
     return Promise.race([
         promise,
         new Promise((resolve) => setTimeout(() => {
             logMsg(`⏱️ TIMEOUT: Thao tác vượt quá ${Math.round(timeoutMs / 1000)} giây -> Tự động skip!`);
+            if (cancelToken) cancelToken.isCancelled = true;
             resolve(fallbackValue);
         }, timeoutMs))
     ]);
 }
 
-async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
+async function processSingleReel(cfg, targetPageName, videoIndex = 1, cancelToken = null) {
+    // Helper: check nếu đã bị cancel
+    const isCancelled = () => cancelToken && cancelToken.isCancelled;
+    
     // 3. BẤM NÚT BÌNH LUẬN (SELECTOR MULTI-LAYER THÔNG MINH)
+    if (isCancelled()) { logMsg('⏱️ Đã bị cancel, dừng xử lý video.'); return false; }
     await delay(1, 3);
     logMsg(`💬 Đang mở ô bình luận cho Video Reels ${videoIndex}...`);
     const cmtOk = await retryFindAndClick(
@@ -792,7 +803,13 @@ async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
         },
         'Nút Gửi bình luận (Multi-layer)', 4, 2
     );
-    if (sendOk) logMsg("🚀 ĐÃ GỬI BÌNH LUẬN!");
+    if (sendOk) {
+        logMsg("🚀 ĐÃ GỬI BÌNH LUẬN!");
+    } else {
+        logMsg("❌ Gửi bình luận KHÔNG thành công!");
+        return false;
+    }
+    if (isCancelled()) { logMsg('⏱️ Đã bị cancel, dừng xử lý video.'); return false; }
 
     // ⏳ ĐỢI BẮT BUỘC 5 GIÂY sau khi gửi - cho Facebook xử lý bình luận
     logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
@@ -937,10 +954,14 @@ async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
                 await delay(5, 6);
                 logMsg(`🎉 HOÀN TẤT! Bình luận đã được ghim thành công cho Nick này!`);
                 await autoLikeOwnPinnedComment();
+                return "POSTED";
+            } else {
+                logMsg(`⚠️ Không tìm thấy nút Ghim hoặc ghim thất bại.`);
+                return false;
             }
         }
     }
-    return true;
+    return false; // Mặc định: không ghim được
 }
 
 // =================== MAIN FLOW ===================
@@ -1085,7 +1106,8 @@ async function runChecking(pageConfigs, targetPageName) {
             'Tab Reels trên Trang Cá Nhân', 4, 2
         );
         if (!reelsOk) {
-            safeSendMessage({ action: "pageCompleted" });
+            logMsg("⚠️ Không tìm thấy tab Reels trên Profile!");
+            safeSendMessage({ action: "pageCompleted", failed: true, reason: "reels_tab_not_found" });
             return;
         }
 
@@ -1133,8 +1155,8 @@ async function runChecking(pageConfigs, targetPageName) {
         }, 'Danh sách Reels', 2, 5);
 
         if (reelLinks.length === 0) {
-            logMsg("⚠️ Không thấy Reels nào.");
-            safeSendMessage({ action: "pageCompleted" });
+            logMsg("⚠️ Không thấy Reels nào trên Profile!");
+            safeSendMessage({ action: "pageCompleted", failed: true, reason: "reels_empty" });
             return;
         }
 
@@ -1186,9 +1208,9 @@ async function runChecking(pageConfigs, targetPageName) {
                     logMsg(`📸 [SAU BACK] Trạng thái: ${afterBack.state} | ${afterBack.details}`);
                     
                     if (afterBack.state === 'HOME_FEED' || afterBack.state === 'BOOKMARKS_MENU') {
-                        logMsg(`⚠️ Back lệch tầng! Đang ở ${afterBack.state} thay vì Profile → Tự chuyển về Profile...`);
-                        window.location.href = 'https://m.facebook.com/profile.php';
-                        await delay(4, 6);
+                        logMsg(`⚠️ Back lệch tầng! Đang ở ${afterBack.state} thay vì Profile → Gửi lệnh về background redirect...`);
+                        safeSendMessage({ action: "needProfileRedirect", pageName: targetPageName });
+                        await delay(5, 7); // Chờ background redirect
                     } else if (afterBack.state === 'CHECKPOINT' || afterBack.state === 'LOGIN_REQUIRED') {
                         logMsg(`🚨 Gặp ${afterBack.state} sau khi back! Skip nick.`);
                         safeSendMessage({ action: "pageCompleted", failed: true, reason: afterBack.state.toLowerCase() });
@@ -1239,7 +1261,8 @@ async function runChecking(pageConfigs, targetPageName) {
             await delay(watchSecs);
             await humanScrollJitter();
 
-            const res = await withTimeout(processSingleReel(cfg, targetPageName, vNum), 180000, false);
+            const cancelToken = { isCancelled: false };
+            const res = await withTimeout(processSingleReel(cfg, targetPageName, vNum, cancelToken), 180000, false, cancelToken);
             resArr.push(res);
             if (res === "ALREADY_EXISTS") {
                 statusArr.push(`V${vNum}: Đã ghim sẵn`);
@@ -1256,6 +1279,12 @@ async function runChecking(pageConfigs, targetPageName) {
         // ==========================================
         // 🎉 TỔNG KẾT VÀ CHUYỂN NICK TIẾP THEO
         // ==========================================
+        // Clear blockDetector interval khi nick xong
+        if (window.__blockDetectorInterval) {
+            clearInterval(window.__blockDetectorInterval);
+            window.__blockDetectorInterval = null;
+        }
+        
         if (window.__completedSent) {
             logMsg(`⚠️ pageCompleted đã gửi rồi (do timeout trước đó), bỏ qua.`);
             return;
@@ -1300,8 +1329,14 @@ async function runChecking(pageConfigs, targetPageName) {
     }
 }
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "runChecking") {
-        runChecking(request.pageConfigs, request.targetPageName);
-    }
-});
+if (!window.__autoPinListenerAdded) {
+    window.__autoPinListenerAdded = true;
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "runChecking") {
+            runChecking(request.pageConfigs, request.targetPageName);
+        }
+    });
+}
+
+} // End of guard block
+

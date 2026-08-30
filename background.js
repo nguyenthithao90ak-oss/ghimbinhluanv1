@@ -696,7 +696,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.get(['isBotRunning', 'targetConfigs', 'currentConfigIndex', 'tabId', 'step'], (state) => {
         if (!state.isBotRunning) return;
         
-        if (request.action === "alreadyTargetAccount") {
+        if (request.action === "needProfileRedirect") {
+            // Content script yêu cầu redirect về Profile (khi back lệch tầng)
+            const realTabId = (sender && sender.tab && sender.tab.id) || state.tabId;
+            addLog(`🔀 Content script yêu cầu redirect về Profile cho "${request.pageName || 'Nick'}"...`);
+            chrome.storage.local.set({ step: "NAVIGATING_PROFILE", tabId: realTabId }, () => {
+                chrome.tabs.update(realTabId, { url: "https://m.facebook.com/profile.php" });
+            });
+        }
+        else if (request.action === "alreadyTargetAccount") {
             const realTabId = (sender && sender.tab && sender.tab.id) || state.tabId;
             addLog(`✅ Nick "${request.pageName}" ĐÃ ĐÚNG! Chuyển về Profile đăng & ghim luôn...`);
             // Chờ 1.5s cho account_switcher thoát xong rồi mới chuyển
@@ -728,6 +736,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 addHistoryRecord(pageName, "⚠️ Bị Lag (Cuối phiên thử lại)", "Do Spinner xoay mòng mòng");
                 
                 // Lưu vào danh sách chờ thử lại & chuyển sang Nick tiếp theo
+                rotateProxyForNextNick(); // Xoay proxy khi nick lag
                 chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (st) => {
                     let queue = st.retryQueue || [];
                     if (!st.isRetryPhase && currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
@@ -1305,9 +1314,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
             if (st.targetConfigs.length === 1) {
                 addLog(`⏰ Chế độ 1 Nick: Nghỉ 30s rồi lặp lại...`);
+                rotateProxyForNextNick(); // Xoay proxy khi nick timeout
                 chrome.alarms.create('singleAccountRepeat', { delayInMinutes: 0.5 });
             } else {
                 // Xếp vào retry queue nếu chưa phải retry phase & chuyển sang Nick tiếp theo
+                rotateProxyForNextNick(); // Xoay proxy khi nick timeout
                 chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (rq) => {
                     let queue = rq.retryQueue || [];
                     if (!rq.isRetryPhase && currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
