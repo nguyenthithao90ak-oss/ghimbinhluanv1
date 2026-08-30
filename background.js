@@ -1387,7 +1387,19 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
                         chrome.tabs.sendMessage(tId, { action: "doSwitchAccount", targetPageName: config.pageName });
                     });
                 }, 2000);
+            } else if (isPureHome) {
+                // Nick đã chuyển xong (Facebook redirect về trang chủ) → Chuyển sang Profile
+                addLog(`📍 Nick chuyển xong! Đang ở Trang Chủ → Chuyển về Profile cho "${config.pageName}"...`);
+                chrome.storage.local.set({ step: "NAVIGATING_PROFILE" });
+                setTimeout(() => {
+                    chrome.tabs.update(tId, { url: "https://m.facebook.com/profile.php" });
+                }, 1500);
+            } else if (isProfile) {
+                // Nick đã chuyển xong và đang ở Profile rồi → Inject auto_pin luôn
+                addLog(`📍 Nick chuyển xong! Đang ở Profile → Inject auto_pin.js cho "${config.pageName}"...`);
+                triggerAutoPin(tId, config);
             } else {
+                // URL lạ → về bookmarks để chuyển nick
                 chrome.storage.local.set({ step: "SWITCHING" });
                 setTimeout(() => {
                     chrome.tabs.update(tId, { url: "https://m.facebook.com/bookmarks/" });
