@@ -842,6 +842,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     
                     const cooldownSecs = Math.floor(Math.random() * 7) + 4; // Random từ 4 đến 10 giây
                     addLog(`📌 Đã hoàn tất Nick "${pName}". Nghỉ ngơi tự nhiên ${cooldownSecs} giây trước khi chuyển sang Nick tiếp theo...`);
+                    
+                    // 🔄 Nick lỗi → xếp vào retry queue để thử lại cuối phiên
+                    if (request.failed && !isSuccess) {
+                        chrome.storage.local.get(['retryQueue', 'isRetryPhase'], (rq) => {
+                            let queue = rq.retryQueue || [];
+                            if (!rq.isRetryPhase && currentCfg && !queue.some(q => q.pageName === currentCfg.pageName)) {
+                                queue.push(currentCfg);
+                                addLog(`🔄 Nick "${pName}" bị lỗi → Xếp vào hàng đợi thử lại (${queue.length} nick trong queue)`);
+                            }
+                            chrome.storage.local.set({ retryQueue: queue });
+                        });
+                    }
+                    
                     rotateProxyForNextNick(); // 🌐 XOAY PROXY CHO NICK TIẾP THEO
                     chrome.alarms.create("nextPageCooldown", { delayInMinutes: cooldownSecs / 60 });
                 }
