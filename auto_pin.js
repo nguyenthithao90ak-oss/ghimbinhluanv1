@@ -937,6 +937,7 @@ async function processSingleReel(cfg, targetPageName, videoIndex = 1, cancelToke
         if (unpinItem) {
             logMsg(`✅ Đã ghim sẵn! Không gỡ.`);
             await autoLikeOwnPinnedComment();
+            return "ALREADY_EXISTS";
         } else {
             const pinOk = await retryFindAndClick(
                 () => findClickableElement('Pin comment') || 
