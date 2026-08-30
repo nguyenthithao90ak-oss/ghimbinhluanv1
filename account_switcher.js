@@ -521,13 +521,12 @@ async function switchToAccount(targetPageName) {
             }
 
             if (isAlreadyActive) {
-                logMsg(`✅ Nick "${targetPageName}" ĐÃ CÓ NÚT XANH (Đang active)! KHÔNG BẤM CHỌN LẠI -> Quay về Profile đăng & ghim luôn!`);
+                logMsg(`✅ Nick "${targetPageName}" ĐÃ CÓ NÚT XANH (Đang active)! KHÔNG BẤM CHỌN LẠI -> Gửi lệnh về Profile...`);
                 safeSendMessage({
                     action: "alreadyTargetAccount",
                     pageName: targetPageName
                 });
-                await delay(800, 1200);
-                window.location.href = "https://m.facebook.com/profile.php";
+                // KHÔNG gọi window.location.href ở đây - để background.js xử lý chuyển hướng duy nhất
                 return; // DỪNG NGAY! KHÔNG BẤM CHỌN LẠI!
             }
 
@@ -543,13 +542,12 @@ async function switchToAccount(targetPageName) {
             // Ta chờ 4.5 giây, nếu trang vẫn không chuyển đi đâu thì 99% là nick này đã active từ trước!
             await delay(4500);
             if (window.location.href.includes('/bookmarks/')) {
-                 logMsg(`✅ Nick "${targetPageName}" CÓ THỂ ĐÃ ACTIVE TỪ TRƯỚC (Vì click xong trang không đổi)! Ép quay về Profile luôn để chống kẹt!`);
+                 logMsg(`✅ Nick "${targetPageName}" CÓ THỂ ĐÃ ACTIVE TỪ TRƯỚC (Vì click xong trang không đổi)! Gửi lệnh về Profile...`);
                  safeSendMessage({
                      action: "alreadyTargetAccount",
                      pageName: targetPageName
                  });
-                 await delay(800, 1200);
-                 window.location.href = "https://m.facebook.com/profile.php";
+                 // KHÔNG gọi window.location.href ở đây - để background.js xử lý chuyển hướng duy nhất
                  return;
             }
         } else {

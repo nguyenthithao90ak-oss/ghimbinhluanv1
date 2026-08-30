@@ -698,14 +698,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         if (request.action === "alreadyTargetAccount") {
             const realTabId = (sender && sender.tab && sender.tab.id) || state.tabId;
-            addLog(`✅ Nick "${request.pageName}" ĐÃ ĐÚNG! Quay về Profile đăng & ghim luôn...`);
-            // Cập nhật tabId chính xác và ép chuyển hướng ngay lập tức
-            chrome.storage.local.set({ step: "NAVIGATING_PROFILE", tabId: realTabId }, () => {
-                if (realTabId) {
-                    chrome.tabs.update(realTabId, { url: "https://m.facebook.com/profile.php" });
-                    addLog(`🔀 Đang chuyển hướng Tab ${realTabId} về Profile...`);
-                }
-            });
+            addLog(`✅ Nick "${request.pageName}" ĐÃ ĐÚNG! Chuyển về Profile đăng & ghim luôn...`);
+            // Chờ 1.5s cho account_switcher thoát xong rồi mới chuyển
+            setTimeout(() => {
+                chrome.storage.local.set({ step: "NAVIGATING_PROFILE", tabId: realTabId }, () => {
+                    if (realTabId) {
+                        addLog(`🔀 Đang chuyển Tab ${realTabId} về Profile...`);
+                        chrome.tabs.update(realTabId, { url: "https://m.facebook.com/profile.php" });
+                    }
+                });
+            }, 1500);
         }
         else if (request.action === "needAccountSwitch") {
             chrome.storage.local.set({ step: "SWITCHING" }, processNextStep);
