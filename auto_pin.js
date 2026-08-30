@@ -54,12 +54,15 @@ function setupBlockDetector(targetPageName) {
             text.includes('we suspended your account')) {
             logMsg('🚨 NGHIÊM TRỌNG: Phát hiện Nick bị CHECKPOINT/HẠN CHẾ! Thoát ngay!');
             safeSendMessage({ action: 'accountLagged', pageName: targetPageName });
+            if (window.__blockDetectorInterval) clearInterval(window.__blockDetectorInterval);
             return true;
         }
         return false;
     };
     if (checkBlock()) return true;
-    setInterval(checkBlock, 3000);
+    // Clear interval cũ nếu có
+    if (window.__blockDetectorInterval) clearInterval(window.__blockDetectorInterval);
+    window.__blockDetectorInterval = setInterval(checkBlock, 3000);
     return false;
 }
 
@@ -1027,6 +1030,7 @@ async function switchToNextReel(targetReelNum, reelLinks) {
 async function runChecking(pageConfigs, targetPageName) {
     try {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
+        window.__completedSent = false; // Reset flag cho mỗi lần chạy mới
         await delay(1, 2);
         
         // 📸 QUÉT MÀN HÌNH TRƯỚC KHI BẮT ĐẦU
@@ -1252,6 +1256,12 @@ async function runChecking(pageConfigs, targetPageName) {
         // ==========================================
         // 🎉 TỔNG KẾT VÀ CHUYỂN NICK TIẾP THEO
         // ==========================================
+        if (window.__completedSent) {
+            logMsg(`⚠️ pageCompleted đã gửi rồi (do timeout trước đó), bỏ qua.`);
+            return;
+        }
+        window.__completedSent = true;
+
         const summaryStr = statusArr.join(' | ');
         logMsg(`\n🎉 HOÀN TẤT ${maxReels} VIDEO CHO "${targetPageName}": [${summaryStr}]`);
         
@@ -1283,7 +1293,10 @@ async function runChecking(pageConfigs, targetPageName) {
 
     } catch (e) {
         logMsg(`❌ Lỗi: ${e.message}`);
-        safeSendMessage({ action: "pageCompleted", failed: true });
+        if (!window.__completedSent) {
+            window.__completedSent = true;
+            safeSendMessage({ action: "pageCompleted", failed: true });
+        }
     }
 }
 
