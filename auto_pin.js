@@ -10,9 +10,15 @@ window.__autoPinLoaded = true;
 // =============================================
 // CORE UTILITIES
 // =============================================
+// 🐢 Hệ số chậm: 1 = bình thường, 2 = chế độ chậm
+window.__slowMultiplier = 1;
+
 const delay = (minSec, maxSec = minSec) => {
+    const mult = window.__slowMultiplier || 1;
+    const realMin = minSec * mult;
+    const realMax = maxSec * mult;
     return new Promise((resolve, reject) => {
-        const sec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+        const sec = Math.floor(Math.random() * (realMax - realMin + 1)) + realMin;
         let elapsed = 0;
         const interval = setInterval(() => {
             try {
@@ -1053,6 +1059,13 @@ async function runChecking(pageConfigs, targetPageName) {
     try {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
         window.__completedSent = false; // Reset flag cho mỗi lần chạy mới
+        
+        // 🐢 Đọc chế độ chậm
+        try {
+            const smData = await new Promise(resolve => chrome.storage.local.get(['slowMode'], resolve));
+            window.__slowMultiplier = smData.slowMode ? 2 : 1;
+            if (window.__slowMultiplier > 1) logMsg('🐢 CHẾ ĐỘ CHẬM BẬT: Mọi thao tác x2 thời gian');
+        } catch(e) {}
         await delay(1, 2);
         
         // 📸 QUÉT MÀN HÌNH TRƯỚC KHI BẮT ĐẦU

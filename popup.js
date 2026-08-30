@@ -145,6 +145,33 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
     });
 });
 
+// 🐢 SLOW MODE TOGGLE
+const slowModeEl = document.getElementById('slowMode');
+const slowModeLabel = document.getElementById('slowModeLabel');
+const slowModeKnob = document.getElementById('slowModeKnob');
+function updateSlowModeUI(isOn) {
+    if (slowModeLabel) {
+        slowModeLabel.textContent = isOn ? 'BẬT' : 'TẮT';
+        slowModeLabel.style.color = isOn ? '#00ff88' : '#ff6666';
+    }
+    if (slowModeKnob) {
+        slowModeKnob.style.left = isOn ? '27px' : '3px';
+        slowModeKnob.parentElement.querySelector('span').style.background = isOn ? '#00aa55' : '#555';
+    }
+}
+chrome.storage.local.get(['slowMode'], (st) => {
+    if (slowModeEl) {
+        slowModeEl.checked = !!st.slowMode;
+        updateSlowModeUI(!!st.slowMode);
+    }
+});
+if (slowModeEl) {
+    slowModeEl.addEventListener('change', () => {
+        chrome.storage.local.set({ slowMode: slowModeEl.checked });
+        updateSlowModeUI(slowModeEl.checked);
+    });
+}
+
 // Phục hồi trạng thái select box khi mở popup
 chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'scheduleDays', 'soundNotifyEnable', 'reelsCount'], (st) => {
     // Tự động chọn số Reels theo khung giờ

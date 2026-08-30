@@ -89,6 +89,15 @@
                     <option value="3">3 Video (17:00 - 24:00)</option>
                 </select>
             </div>
+            <div class="group" style="display:flex; align-items:center; gap:10px;">
+                <label style="flex:1;">🐢 Chế độ chậm (giảm 50% tốc độ):</label>
+                <label style="position:relative; display:inline-block; width:50px; height:26px; cursor:pointer;">
+                    <input type="checkbox" id="slowMode" style="opacity:0; width:0; height:0;">
+                    <span style="position:absolute; top:0; left:0; right:0; bottom:0; background:#555; border-radius:26px; transition:.3s;"></span>
+                    <span id="slowModeKnob" style="position:absolute; top:3px; left:3px; width:20px; height:20px; background:#fff; border-radius:50%; transition:.3s;"></span>
+                </label>
+                <span id="slowModeLabel" style="font-weight:bold; color:#ff6666;">TẮT</span>
+            </div>
             <div class="group" id="singlePageGroup" style="display: none;">
                 <label>Chọn Page Muốn Chạy:</label>
                 <select id="singlePageSelect">
