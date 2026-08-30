@@ -825,6 +825,7 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             chrome.storage.local.set({ isBotRunning: false, isScheduleWaiting: false, step: "STOPPED" }, () => {
                 safeRuntimeSendMessage({ action: "stopBotProcess" });
                 chrome.storage.local.get(['botLogs'], (res) => {
+                    let logs = res.botLogs || [];
                     const t = new Date(); const hh = t.getHours().toString().padStart(2,'0'); const mm = t.getMinutes().toString().padStart(2,'0');
                     logs.push(`[${hh}:${mm}] 🛑 Đã gửi lệnh DỪNG BOT!`);
                     chrome.storage.local.set({ botLogs: logs });
