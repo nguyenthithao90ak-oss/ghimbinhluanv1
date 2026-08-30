@@ -795,7 +795,10 @@ async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
     logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
     await delay(5, 7);
 
-    // 🧠 AI SUPERVISOR: Tự giải phóng các lớp phủ che mờ trước khi ghim
+    // 🧠 AI SUPERVISOR + 📸 SCREEN DETECTOR: Giải phóng popup trước khi ghim
+    if (typeof ensureCleanScreen === 'function') {
+        await ensureCleanScreen(logMsg);
+    }
     if (window.__aiSupervisor) {
         await window.__aiSupervisor.inspectAndHeal('Tìm Nút 3 Chấm');
     }
@@ -1014,6 +1017,29 @@ async function runChecking(pageConfigs, targetPageName) {
         logMsg("🚀 Bắt đầu kiểm tra Profile...");
         await delay(1, 2);
         
+        // 📸 QUÉT MÀN HÌNH TRƯỚC KHI BẮT ĐẦU
+        if (typeof ensureCleanScreen === 'function') {
+            const screenCheck = await ensureCleanScreen(logMsg);
+            if (!screenCheck.ok) {
+                if (screenCheck.reason === 'checkpoint' || screenCheck.reason === 'login_required') {
+                    logMsg(`🚨 Nick "${targetPageName}" bị ${screenCheck.reason}! Skip nick này.`);
+                    safeSendMessage({ action: "pageCompleted", failed: true, reason: screenCheck.reason });
+                    return;
+                }
+                if (screenCheck.reason === 'wrong_screen_home') {
+                    logMsg(`⚠️ Đang ở trang chủ, chờ redirect về Profile...`);
+                    await delay(3, 5);
+                    // Quét lại sau khi chờ
+                    const recheck = typeof detectScreenState === 'function' ? detectScreenState() : null;
+                    if (recheck && (recheck.state === 'HOME_FEED' || recheck.state === 'UNKNOWN')) {
+                        logMsg(`⚠️ Vẫn sai màn hình sau khi chờ. Báo lỗi.`);
+                        safeSendMessage({ action: "pageCompleted", failed: true, reason: 'wrong_screen' });
+                        return;
+                    }
+                }
+            }
+        }
+        
         // 0. BỎ QUA KIỂM TRA TÊN NICK (Luôn tin tưởng account_switcher đã làm đúng)
         let currentPageName = targetPageName; // Giả định luôn đúng
         setupBlockDetector(targetPageName);
@@ -1137,6 +1163,27 @@ async function runChecking(pageConfigs, targetPageName) {
                     window.history.back();
                     await delay(2, 3);
                 }
+                
+                // 📸 QUÉT MÀN HÌNH SAU KHI BACK - Xác nhận đã về đúng chỗ
+                if (typeof detectScreenState === 'function') {
+                    const afterBack = detectScreenState();
+                    logMsg(`📸 [SAU BACK] Trạng thái: ${afterBack.state} | ${afterBack.details}`);
+                    
+                    if (afterBack.state === 'HOME_FEED' || afterBack.state === 'BOOKMARKS_MENU') {
+                        logMsg(`⚠️ Back lệch tầng! Đang ở ${afterBack.state} thay vì Profile → Tự chuyển về Profile...`);
+                        window.location.href = 'https://m.facebook.com/profile.php';
+                        await delay(4, 6);
+                    } else if (afterBack.state === 'CHECKPOINT' || afterBack.state === 'LOGIN_REQUIRED') {
+                        logMsg(`🚨 Gặp ${afterBack.state} sau khi back! Skip nick.`);
+                        safeSendMessage({ action: "pageCompleted", failed: true, reason: afterBack.state.toLowerCase() });
+                        return;
+                    } else if (afterBack.state === 'BLOCKING_POPUP' && typeof dismissBlockingPopup === 'function') {
+                        logMsg(`🛡️ Popup cản trở sau back → Tự đóng...`);
+                        dismissBlockingPopup(afterBack.popupElement);
+                        await delay(1, 2);
+                    }
+                }
+                
                 logMsg(`📍 Đang ở: ${window.location.href}`);
                 await delay(2, 3);
 

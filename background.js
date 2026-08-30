@@ -788,18 +788,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 addLog(`⚠️ Page "${pName}": Thao tác không thành công -> Bỏ qua, chuẩn bị chuyển sang Page tiếp theo.`);
                 addHistoryRecord(pName, "⚠️ Thao tác không thành công", "Không thể tìm thấy phần tử hoặc Facebook không phản hồi");
             }
-
-            // LUU KET QUA NICK DA HOAN THANH DE UU TIEN VONG SAU
-            const isSuccess = !!(request.alreadyExisted || request.newlyPosted || (request.summaryStatus && !request.failed));
-            if (isSuccess && pName) {
-                chrome.storage.local.get(['completedNicks'], (cRes) => {
-                    let completed = cRes.completedNicks || [];
-                    if (!completed.includes(pName)) {
-                        completed.push(pName);
-                    }
-                    chrome.storage.local.set({ completedNicks: completed });
-                });
-            }
+
+
+            // LUU KET QUA NICK DA HOAN THANH DE UU TIEN VONG SAU
+
+            const isSuccess = !!(request.alreadyExisted || request.newlyPosted || (request.summaryStatus && !request.failed));
+
+            if (isSuccess && pName) {
+
+                chrome.storage.local.get(['completedNicks'], (cRes) => {
+
+                    let completed = cRes.completedNicks || [];
+
+                    if (!completed.includes(pName)) {
+
+                        completed.push(pName);
+
+                    }
+
+                    chrome.storage.local.set({ completedNicks: completed });
+
+                });
+
+            }
+
             
             chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax'], (settings) => {
                 const strat = settings.loopStrategy || 'ONCE';
@@ -1163,9 +1175,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                 const shuffledNotDone = notDone.length > 1 ? shuffleArray(notDone) : notDone;
                 const shuffledDone = done.length > 1 ? shuffleArray(done) : done;
                 const newShuffledConfigs = [...shuffledNotDone, ...shuffledDone];
-                const newOrderNames = newShuffledConfigs.map((c, idx) => `[${idx + 1}] ${c.pageName}`).join(" > ");
+                const newOrderNames = newShuffledConfigs.map((c, idx) => `[${idx + 1}] ${c.pageName}`).join(" > ");
 
-                addLog(`VONG MOI: ${shuffledNotDone.length} nick chua xong (uu tien) + ${shuffledDone.length} nick da xong -> Tong ${newShuffledConfigs.length} Page`);
+
+                addLog(`VONG MOI: ${shuffledNotDone.length} nick chua xong (uu tien) + ${shuffledDone.length} nick da xong -> Tong ${newShuffledConfigs.length} Page`);
+
             addLog(`📋 Thứ tự ngẫu nhiên vòng mới: ${newOrderNames}`);
 
             chrome.storage.local.set({
@@ -1174,7 +1188,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
                 currentConfigIndex: 0,
                 step: "SWITCHING"
             }, processNextStep);
-            });
+            });
+
         });
     }
     else if (alarm.name === 'telegramPoll') {
@@ -1308,7 +1323,7 @@ function triggerAutoPin(tId, config) {
         });
         chrome.scripting.executeScript({
             target: { tabId: tId },
-            files: ['ai_supervisor.js', 'auto_pin.js']
+            files: ['screen_detector.js', 'ai_supervisor.js', 'auto_pin.js']
         }, () => {
             chrome.tabs.sendMessage(tId, { action: "runChecking", pageConfigs: [config], targetPageName: config.pageName });
         });
@@ -1327,18 +1342,34 @@ chrome.tabs.onUpdated.addListener((tId, changeInfo, tab) => {
         if (!url.includes('facebook.com')) return;
 
         const isBookmarks = url.includes('/bookmarks/') || url.includes('/menu/');
-        const isPureHome = /^https?:\/\/(m|www)\.facebook\.com\/?(\?.*)?$/i.test(url) || url.includes('/home.php');
-        const isProfile = url.includes('profile') || (!isBookmarks && !isPureHome && !url.includes('/login') && !url.includes('/checkpoint'));
+        const isPureHome = /^https?:\/\/(m|www)\.facebook\.com\/?(home\.php)?(\?.*)?$/i.test(url);
+        const isCheckpoint = url.includes('/checkpoint') || url.includes('/identity') || url.includes('/suspended');
+        const isLogin = url.includes('/login');
+        const isReelPage = url.includes('/reel/') || url.includes('/watch/');
+        const isOtherPage = url.includes('/notifications') || url.includes('/stories/') || url.includes('/groups/');
+        
+        // 🚨 CHECKPOINT / LOGIN → Skip nick ngay lập tức
+        if (isCheckpoint || isLogin) {
+            addLog(`🚨 [PHÁT HIỆN] ${isCheckpoint ? 'CHECKPOINT' : 'LOGIN REQUIRED'} cho Nick "${config.pageName}"! Skip ngay.`);
+            chrome.alarms.clear('nickSessionTimeout');
+            chrome.storage.local.set({ step: "IDLE" }, () => {
+                processNextStep();
+            });
+            return;
+        }
+        
+        // Profile = URL chứa 'profile' VÀ KHÔNG phải reel/watch/notifications/etc
+        const isProfile = (url.includes('profile') || url.includes('/me')) && !isReelPage;
 
         if (state.step === "WAIT_PROFILE" || state.step === "NAVIGATING_PROFILE") {
             if (isProfile) {
                 triggerAutoPin(tId, config);
-            } else if (isPureHome) {
-                addLog(`📍 Đang ở Trang Chủ Facebook -> Tự động chuyển vào Trang Cá Nhân cho "${config.pageName}"...`);
-                setTimeout(() => {
-                    chrome.tabs.update(tId, { url: "https://m.facebook.com/profile.php" });
-                }, 1500);
-            } else if (isBookmarks) {
+            } else if (isReelPage) {
+                // Đang ở Reel player → vẫn inject auto_pin
+                addLog(`📍 Đang ở trang Reel → Inject auto_pin.js...`);
+                triggerAutoPin(tId, config);
+            } else if (isPureHome || isBookmarks || isOtherPage) {
+                addLog(`📍 Đang ở ${isPureHome ? 'Trang Chủ' : isBookmarks ? 'Bookmarks' : 'trang khác'} → Tự chuyển về Profile cho "${config.pageName}"...`);
                 setTimeout(() => {
                     chrome.tabs.update(tId, { url: "https://m.facebook.com/profile.php" });
                 }, 1500);
