@@ -795,6 +795,16 @@ async function processSingleReel(cfg, targetPageName, videoIndex = 1) {
     logMsg("⏳ Đợi bắt buộc 5 giây sau khi gửi bình luận (để Facebook xử lý)...");
     await delay(5, 7);
 
+    // 📜 CUỘN LÊN ĐẦU DANH SÁCH BÌNH LUẬN để chắc chắn thấy bình luận mới nhất
+    logMsg("📜 Cuộn lên đầu danh sách bình luận...");
+    const commentScrollable = document.querySelector('div[role="dialog"], div[data-sigil="comment-list"], div[id*="comment"]') 
+        || document.scrollingElement || document.documentElement;
+    if (commentScrollable) {
+        commentScrollable.scrollTop = 0;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await delay(1, 2);
+
     // 🧠 AI SUPERVISOR + 📸 SCREEN DETECTOR: Giải phóng popup trước khi ghim
     if (typeof ensureCleanScreen === 'function') {
         await ensureCleanScreen(logMsg);
