@@ -146,10 +146,10 @@ document.getElementById('scheduleTimes').addEventListener('input', (e) => {
 });
 
 // Phục hồi trạng thái select box khi mở popup
-chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'scheduleDays', 'soundNotifyEnable', 'reelsPerPage'], (st) => {
-    const reelsEl = document.getElementById('reelsPerPage');
-    if (st.reelsPerPage && reelsEl) {
-        reelsEl.value = st.reelsPerPage;
+chrome.storage.local.get(['loopStrategy', 'loopDelayMin', 'loopDelayMax', 'scheduleTimes', 'scheduleDays', 'soundNotifyEnable', 'reelsCount'], (st) => {
+    const reelsEl = document.getElementById('reelsCount');
+    if (st.reelsCount && reelsEl) {
+        reelsEl.value = st.reelsCount;
     }
     if (st.loopStrategy) {
         document.getElementById('loopStrategy').value = st.loopStrategy;
@@ -864,7 +864,8 @@ document.getElementById('btnStartCheck').addEventListener('click', () => {
             loopStrategy: strategy,
             scheduleTimes: schedTimes,
             scheduleDays: dayChecks,
-            soundNotifyEnable: soundEnable
+            soundNotifyEnable: soundEnable,
+            reelsCount: parseInt(document.getElementById('reelsCount').value) || 2
         }, () => {
             safeRuntimeSendMessage({
                 action: "startMultiAccountProcess",

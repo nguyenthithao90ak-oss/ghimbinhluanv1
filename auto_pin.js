@@ -1099,201 +1099,126 @@ async function runChecking(pageConfigs, targetPageName) {
         let cfg = (pageConfigs && pageConfigs.length > 0) ? pageConfigs[0] : null;
 
         // ==========================================
-        // 🎬 TIẾN TRÌNH XỬ LÝ 2 VIDEO REELS
+        // 🎬 ĐỌC SỐ VIDEO TỪ CẤU HÌNH
         // ==========================================
-        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels -> Bắt đầu quy trình xử lý 3 VIDEO REELS cho "${targetPageName}"...`);
+        let maxReels = 2; // Mặc định
+        try {
+            const rcData = await new Promise(resolve => {
+                chrome.storage.local.get(['reelsCount'], resolve);
+            });
+            maxReels = rcData.reelsCount || 2;
+        } catch(e) {}
+        
+        logMsg(`🎯 Tìm thấy ${reelLinks.length} Reels -> Bắt đầu xử lý ${maxReels} VIDEO REELS cho "${targetPageName}"...`);
 
-        // --- VIDEO REELS 1 ---
-        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [1/3] BẮT ĐẦU XỬ LÝ VIDEO REELS 1 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        const firstEl = reelLinks[0];
-        const firstRect = firstEl.getBoundingClientRect();
-        if (firstRect.top > window.innerHeight * 0.7) {
-            window.scrollBy(0, firstRect.top - window.innerHeight * 0.4);
-            await delay(1, 2);
-        }
+        const statusArr = [];
+        const resArr = [];
 
-        await safeClick(firstEl);
-        const watchSecs1 = Math.floor(Math.random() * 5) + 4;
-        logMsg("🎬 Giả lập xem Video Reels 1 tự nhiên (" + watchSecs1 + " giây)...");
-        await delay(watchSecs1);
-        await humanScrollJitter();
+        for (let vIdx = 0; vIdx < maxReels; vIdx++) {
+            const vNum = vIdx + 1;
+            logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [${vNum}/${maxReels}] BẮT ĐẦU XỬ LÝ VIDEO REELS ${vNum} cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
-        const res1 = await withTimeout(processSingleReel(cfg, targetPageName, 1), 180000, false);
-        let statusV1 = "";
-        if (res1 === "ALREADY_EXISTS") {
-            statusV1 = "V1: Đã ghim sẵn từ trước";
-            logMsg(`ℹ️ Video Reels 1: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
-        } else if (res1 === true || res1 === "POSTED") {
-            statusV1 = "V1: Đã đăng mới & ghim";
-            logMsg(`✅ Video Reels 1: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
-        } else {
-            statusV1 = "V1: Thao tác lỗi";
-            logMsg(`⚠️ Video Reels 1: Thao tác không thành công.`);
-        }
+            if (vIdx === 0) {
+                // Video 1: click trực tiếp từ lưới đã tìm sẵn
+                const firstEl = reelLinks[0];
+                const firstRect = firstEl.getBoundingClientRect();
+                if (firstRect.top > window.innerHeight * 0.7) {
+                    window.scrollBy(0, firstRect.top - window.innerHeight * 0.4);
+                    await delay(1, 2);
+                }
+                await safeClick(firstEl);
+            } else {
+                // Video 2, 3: quay lại Profile rồi click video tiếp theo
+                logMsg(`🔙 Dùng history.back() để quay về trang Profile...`);
+                window.history.back();
+                await delay(2, 3);
+                if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
+                    logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần...`);
+                    window.history.back();
+                    await delay(2, 3);
+                }
+                logMsg(`📍 Đang ở: ${window.location.href}`);
+                await delay(2, 3);
 
-        // ============================================================
-        // 🔙 QUAY LẠI TRANG PROFILE RỒI CLICK VIDEO THỨ 2 TRỰC TIẾP
-        // ============================================================
-        // --- VIDEO REELS 2 ---
-        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [2/3] BẮT ĐẦU XỬ LÝ VIDEO REELS 2 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                logMsg(`🔍 Tìm lại danh sách Video Reels trên trang Profile...`);
+                let foundLinks = [];
+                for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
+                    foundLinks = findReelLinks();
+                    if (foundLinks.length >= vNum) break;
+                    logMsg(`🔍 [Lần ${findAttempt + 1}/5] Tìm thấy ${foundLinks.length} Reels, chờ thêm...`);
+                    await delay(1, 2);
+                }
 
-        // BƯỚC 1: QUAY LẠI TRANG PROFILE (REELS TAB)
-        logMsg(`🔙 Dùng history.back() để quay về trang Profile...`);
-        window.history.back();
-        await delay(2, 3);
-        // Nếu vẫn ở trang Reel, back thêm
-        if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
-            logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần...`);
-            window.history.back();
-            await delay(2, 3);
-        }
-        logMsg(`📍 Đang ở: ${window.location.href}`);
-        await delay(2, 3);
-
-        // BƯỚC 2: TÌM LẠI DANH SÁCH VIDEO REELS TRÊN TRANG PROFILE
-        logMsg(`🔍 Tìm lại danh sách Video Reels trên trang Profile...`);
-        let reelLinks2 = [];
-        for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
-            reelLinks2 = findReelLinks();
-            if (reelLinks2.length >= 2) break;
-            logMsg(`🔍 [Lần ${findAttempt + 1}/5] Tìm thấy ${reelLinks2.length} Reels, chờ thêm...`);
-            await delay(1, 2);
-        }
-
-        // BƯỚC 3: CLICK THẲNG VÀO VIDEO THỨ 2 TRONG LƯỚI
-        if (reelLinks2.length >= 2) {
-            const secondEl = reelLinks2[1];
-            const sr = secondEl.getBoundingClientRect();
-            logMsg(`🎯 Tìm thấy ${reelLinks2.length} Reels. Click thẳng vào Video thứ 2 (top=${Math.round(sr.top)}, left=${Math.round(sr.left)})...`);
-            if (sr.top > window.innerHeight * 0.7) {
-                window.scrollBy(0, sr.top - window.innerHeight * 0.4);
-                await delay(1, 2);
+                if (foundLinks.length >= vNum) {
+                    const targetEl = foundLinks[vIdx];
+                    const tr = targetEl.getBoundingClientRect();
+                    logMsg(`🎯 Tìm thấy ${foundLinks.length} Reels. Click vào Video thứ ${vNum} (top=${Math.round(tr.top)}, left=${Math.round(tr.left)})...`);
+                    if (tr.top > window.innerHeight * 0.7) {
+                        window.scrollBy(0, tr.top - window.innerHeight * 0.4);
+                        await delay(1, 2);
+                    }
+                    await safeClick(targetEl);
+                } else if (foundLinks.length > 0) {
+                    logMsg(`⚠️ Chỉ thấy ${foundLinks.length} Reels, click vào cái cuối rồi lướt...`);
+                    await safeClick(foundLinks[foundLinks.length - 1]);
+                    await delay(3, 4);
+                    window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+                    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }));
+                } else {
+                    logMsg(`⚠️ Không tìm thấy Reels nào trên Profile!`);
+                }
             }
-            await safeClick(secondEl);
-        } else if (reelLinks2.length === 1) {
-            logMsg(`⚠️ Chỉ thấy 1 Reel, click vào nó rồi thử lướt xuống...`);
-            await safeClick(reelLinks2[0]);
+
+            // ĐỢI VIDEO LOAD + GIẢ LẬP XEM TỰ NHIÊN
             await delay(3, 4);
-            window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, bubbles: true }));
-        } else {
-            logMsg(`⚠️ Không tìm thấy Reels nào trên Profile!`);
-        }
+            const watchSecs = Math.floor(Math.random() * 5) + 3;
+            logMsg(`🎬 Giả lập xem Video Reels ${vNum} tự nhiên (${watchSecs} giây)...`);
+            await delay(watchSecs);
+            await humanScrollJitter();
 
-        // ĐỢI VIDEO 2 LOAD
-        await delay(3, 4);
-
-        // GIẢ LẬP XEM VIDEO 2 TỰ NHIÊN
-        const watchSecs2 = Math.floor(Math.random() * 5) + 3;
-        logMsg(`🎬 Giả lập xem Video Reels 2 tự nhiên (${watchSecs2} giây)...`);
-        await delay(watchSecs2);
-        await humanScrollJitter();
-
-        const res2 = await withTimeout(processSingleReel(cfg, targetPageName, 2), 180000, false);
-        let statusV2 = "";
-        if (res2 === "ALREADY_EXISTS") {
-            statusV2 = "V2: Đã ghim sẵn từ trước";
-            logMsg(`ℹ️ Video Reels 2: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
-        } else if (res2 === true || res2 === "POSTED") {
-            statusV2 = "V2: Đã đăng mới & ghim";
-            logMsg(`✅ Video Reels 2: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
-        } else {
-            statusV2 = "V2: Thao tác lỗi";
-            logMsg(`⚠️ Video Reels 2: Thao tác không thành công.`);
-        }
-
-        // ============================================================
-        // 🔙 QUAY LẠI TRANG PROFILE RỒI CLICK VIDEO THỨ 3 TRỰC TIẾP
-        // ============================================================
-        // --- VIDEO REELS 3 ---
-        logMsg(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🎬 [3/3] BẮT ĐẦU XỬ LÝ VIDEO REELS 3 cho "${targetPageName}"...\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-
-        // BƯỚC 1: QUAY LẠI TRANG PROFILE (REELS TAB)
-        logMsg(`🔙 Dùng history.back() để quay về trang Profile...`);
-        window.history.back();
-        await delay(2, 3);
-        if (window.location.href.includes('/reel/') || window.location.href.includes('/watch/')) {
-            logMsg(`🔙 Vẫn ở trang Reel, back thêm 1 lần...`);
-            window.history.back();
-            await delay(2, 3);
-        }
-        logMsg(`📍 Đang ở: ${window.location.href}`);
-        await delay(2, 3);
-
-        // BƯỚC 2: TÌM LẠI DANH SÁCH VIDEO REELS TRÊN TRANG PROFILE
-        logMsg(`🔍 Tìm lại danh sách Video Reels trên trang Profile...`);
-        let reelLinks3 = [];
-        for (let findAttempt = 0; findAttempt < 5; findAttempt++) {
-            reelLinks3 = findReelLinks();
-            if (reelLinks3.length >= 3) break;
-            logMsg(`🔍 [Lần ${findAttempt + 1}/5] Tìm thấy ${reelLinks3.length} Reels, chờ thêm...`);
-            await delay(1, 2);
-        }
-
-        // BƯỚC 3: CLICK THẲNG VÀO VIDEO THỨ 3 TRONG LƯỚI
-        if (reelLinks3.length >= 3) {
-            const thirdEl = reelLinks3[2];
-            const tr = thirdEl.getBoundingClientRect();
-            logMsg(`🎯 Tìm thấy ${reelLinks3.length} Reels. Click thẳng vào Video thứ 3 (top=${Math.round(tr.top)}, left=${Math.round(tr.left)})...`);
-            if (tr.top > window.innerHeight * 0.7) {
-                window.scrollBy(0, tr.top - window.innerHeight * 0.4);
-                await delay(1, 2);
+            const res = await withTimeout(processSingleReel(cfg, targetPageName, vNum), 180000, false);
+            resArr.push(res);
+            if (res === "ALREADY_EXISTS") {
+                statusArr.push(`V${vNum}: Đã ghim sẵn`);
+                logMsg(`ℹ️ Video Reels ${vNum}: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
+            } else if (res === true || res === "POSTED") {
+                statusArr.push(`V${vNum}: Đã đăng & ghim`);
+                logMsg(`✅ Video Reels ${vNum}: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
+            } else {
+                statusArr.push(`V${vNum}: Thao tác lỗi`);
+                logMsg(`⚠️ Video Reels ${vNum}: Thao tác không thành công.`);
             }
-            await safeClick(thirdEl);
-        } else {
-            logMsg(`⚠️ Chỉ thấy ${reelLinks3.length} Reels, không đủ 3 video!`);
-        }
-
-        // ĐỢI VIDEO 3 LOAD
-        await delay(3, 4);
-
-        // GIẢ LẬP XEM VIDEO 3 TỰ NHIÊN
-        const watchSecs3 = Math.floor(Math.random() * 5) + 3;
-        logMsg(`🎬 Giả lập xem Video Reels 3 tự nhiên (${watchSecs3} giây)...`);
-        await delay(watchSecs3);
-        await humanScrollJitter();
-
-        const res3 = await withTimeout(processSingleReel(cfg, targetPageName, 3), 180000, false);
-        let statusV3 = "";
-        if (res3 === "ALREADY_EXISTS") {
-            statusV3 = "V3: Đã ghim sẵn từ trước";
-            logMsg(`ℹ️ Video Reels 3: ĐÃ GHIM/BÌNH LUẬN TỪ TRƯỚC!`);
-        } else if (res3 === true || res3 === "POSTED") {
-            statusV3 = "V3: Đã đăng mới & ghim";
-            logMsg(`✅ Video Reels 3: ĐÃ ĐĂNG BÌNH LUẬN & GHIM THÀNH CÔNG!`);
-        } else {
-            statusV3 = "V3: Thao tác lỗi";
-            logMsg(`⚠️ Video Reels 3: Thao tác không thành công.`);
         }
 
         // ==========================================
         // 🎉 TỔNG KẾT VÀ CHUYỂN NICK TIẾP THEO
         // ==========================================
-        logMsg(`\n🎉 HOÀN TẤT 3 VIDEO CHO "${targetPageName}": [${statusV1}] | [${statusV2}] | [${statusV3}]`);
+        const summaryStr = statusArr.join(' | ');
+        logMsg(`\n🎉 HOÀN TẤT ${maxReels} VIDEO CHO "${targetPageName}": [${summaryStr}]`);
         
-        const allAlready = (res1 === "ALREADY_EXISTS" && res2 === "ALREADY_EXISTS" && res3 === "ALREADY_EXISTS");
-        const anyPosted = (res1 === true || res1 === "POSTED" || res2 === true || res2 === "POSTED" || res3 === true || res3 === "POSTED");
+        const allAlready = resArr.every(r => r === "ALREADY_EXISTS");
+        const anyPosted = resArr.some(r => r === true || r === "POSTED");
 
         if (allAlready) {
             safeSendMessage({ 
                 action: "pageCompleted", 
                 alreadyExisted: true,
-                summaryStatus: "ℹ️ Cả 3 Reels đã ghim sẵn",
-                summaryDetails: `${statusV1} | ${statusV2} | ${statusV3}`
+                summaryStatus: `ℹ️ Cả ${maxReels} Reels đã ghim sẵn`,
+                summaryDetails: summaryStr
             });
         } else if (anyPosted) {
             safeSendMessage({ 
                 action: "pageCompleted", 
                 newlyPosted: true,
-                summaryStatus: "✅ Hoàn tất 3 Reels",
-                summaryDetails: `${statusV1} | ${statusV2} | ${statusV3}`
+                summaryStatus: `✅ Hoàn tất ${maxReels} Reels`,
+                summaryDetails: summaryStr
             });
         } else {
             safeSendMessage({ 
                 action: "pageCompleted", 
                 failed: true,
-                summaryStatus: "⚠️ Xong 3 Reels (có lỗi)",
-                summaryDetails: `${statusV1} | ${statusV2} | ${statusV3}`
+                summaryStatus: `⚠️ Xong ${maxReels} Reels (có lỗi)`,
+                summaryDetails: summaryStr
             });
         }
 
