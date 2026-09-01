@@ -1,85 +1,86 @@
 
 // --------------------------------------------------------------------------------------
-// 📱 THIẾT BỊ CỐ ĐỊNH CHO TỪNG PROFILE (MULTI-PROFILE HARDWARE FINGERPRINT)
+// --------------------------------------------------------------------------------------
+// 💻 THIẾT BỊ WINDOWS CỐ ĐỊNH & FAKE DERIVED HARDWARE FINGERPRINT
 // --------------------------------------------------------------------------------------
 const DEVICE_DATABASE = {
-    'samsung_s24': {
-        name: 'Samsung Galaxy S24 Ultra',
-        ua: 'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
-        platform: 'Android',
-        model: 'SM-S928B',
-        version: '14.0.0',
-        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
-        jsPlatform: 'Linux armv8l',
-        screenWidth: 412,
-        screenHeight: 915,
-        dpr: 3.5,
-        gpuVendor: 'Qualcomm',
-        gpuRenderer: 'Adreno (TM) 750'
+    'win11_dell_xps': {
+        name: 'Dell XPS 15 (Windows 11 / Core i7 / RTX 4060 / 32GB)',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        platform: 'Windows',
+        model: '',
+        version: '15.0.0',
+        secChUa: '"Chromium";v="133", "Google Chrome";v="133", "Not?A_Brand";v="24"',
+        jsPlatform: 'Win32',
+        screenWidth: 1920,
+        screenHeight: 1080,
+        dpr: 1.25,
+        gpuVendor: 'Google Inc. (NVIDIA)',
+        gpuRenderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Laptop GPU Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
-    'iphone_14_pro_max': {
-        name: 'iPhone 14 Pro Max',
-        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
-        platform: 'iOS',
-        model: 'iPhone15,3',
-        version: '17.5.1',
-        secChUa: '"Not/A)Brand";v="8", "Chromium";v="128", "Safari";v="17"',
-        jsPlatform: 'iPhone',
-        screenWidth: 430,
-        screenHeight: 932,
-        dpr: 3.0,
-        gpuVendor: 'Apple Inc.',
-        gpuRenderer: 'Apple A16 GPU'
+    'win11_asus_rog': {
+        name: 'ASUS ROG Zephyrus (Windows 11 / Ryzen 7 / RTX 4070 / 16GB)',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        platform: 'Windows',
+        model: '',
+        version: '15.0.0',
+        secChUa: '"Chromium";v="133", "Google Chrome";v="133", "Not?A_Brand";v="24"',
+        jsPlatform: 'Win32',
+        screenWidth: 2560,
+        screenHeight: 1440,
+        dpr: 1.5,
+        gpuVendor: 'Google Inc. (NVIDIA)',
+        gpuRenderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
-    'iphone_15': {
-        name: 'iPhone 15 Pro Max',
-        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
-        platform: 'iOS',
-        model: 'iPhone16,2',
-        version: '17.5.1',
-        secChUa: '"Not/A)Brand";v="8", "Chromium";v="128", "Safari";v="17"',
-        jsPlatform: 'iPhone',
-        screenWidth: 430,
-        screenHeight: 932,
-        dpr: 3.0,
-        gpuVendor: 'Apple Inc.',
-        gpuRenderer: 'Apple A17 GPU'
+    'win10_thinkpad_x1': {
+        name: 'Lenovo ThinkPad X1 (Windows 10 / Core i7 / Intel Iris Xe / 16GB)',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        platform: 'Windows',
+        model: '',
+        version: '10.0.0',
+        secChUa: '"Chromium";v="132", "Google Chrome";v="132", "Not?A_Brand";v="24"',
+        jsPlatform: 'Win32',
+        screenWidth: 1920,
+        screenHeight: 1080,
+        dpr: 1.0,
+        gpuVendor: 'Google Inc. (Intel)',
+        gpuRenderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
-    'xiaomi_14': {
-        name: 'Xiaomi 14 Pro',
-        ua: 'Mozilla/5.0 (Linux; Android 14; 23116PN5BC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
-        platform: 'Android',
-        model: '23116PN5BC',
-        version: '14.0.0',
-        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
-        jsPlatform: 'Linux aarch64',
-        screenWidth: 412,
-        screenHeight: 915,
-        dpr: 3.5,
-        gpuVendor: 'Qualcomm',
-        gpuRenderer: 'Adreno (TM) 750'
+    'win11_hp_spectre': {
+        name: 'HP Spectre x360 (Windows 11 / Core i7 / 16GB)',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        platform: 'Windows',
+        model: '',
+        version: '15.0.0',
+        secChUa: '"Chromium";v="133", "Google Chrome";v="133", "Not?A_Brand";v="24"',
+        jsPlatform: 'Win32',
+        screenWidth: 1920,
+        screenHeight: 1080,
+        dpr: 1.25,
+        gpuVendor: 'Google Inc. (Intel)',
+        gpuRenderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
     },
-    'pixel_8': {
-        name: 'Google Pixel 8 Pro',
-        ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36',
-        platform: 'Android',
-        model: 'Pixel 8 Pro',
-        version: '14.0.0',
-        secChUa: '"Chromium";v="128", "Google Chrome";v="128", "Not;A=Brand";v="24"',
-        jsPlatform: 'Linux aarch64',
-        screenWidth: 412,
-        screenHeight: 915,
-        dpr: 3.5,
-        gpuVendor: 'Google',
-        gpuRenderer: 'Mali-G715'
+    'win11_edge_surface': {
+        name: 'MS Surface Laptop (Windows 11 / Edge 133 / 16GB)',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0',
+        platform: 'Windows',
+        model: '',
+        version: '15.0.0',
+        secChUa: '"Chromium";v="133", "Microsoft Edge";v="133", "Not?A_Brand";v="24"',
+        jsPlatform: 'Win32',
+        screenWidth: 2256,
+        screenHeight: 1504,
+        dpr: 1.5,
+        gpuVendor: 'Google Inc. (Intel)',
+        gpuRenderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
     }
 };
 
 function applyDeviceEmulationFromStorage() {
     if (typeof chrome === 'undefined' || !chrome.declarativeNetRequest) return;
     chrome.storage.local.get(['deviceProfileKey'], (res) => {
-        const key = res.deviceProfileKey || 'samsung_s24';
-        const dev = DEVICE_DATABASE[key] || DEVICE_DATABASE['samsung_s24'];
+        const key = res.deviceProfileKey || 'win11_dell_xps';
+        const dev = DEVICE_DATABASE[key] || DEVICE_DATABASE['win11_dell_xps'];
         
         try {
             chrome.declarativeNetRequest.updateDynamicRules({
@@ -92,10 +93,12 @@ function applyDeviceEmulationFromStorage() {
                             type: 'modifyHeaders',
                             requestHeaders: [
                                 { header: 'User-Agent', operation: 'set', value: dev.ua },
-                                { header: 'sec-ch-ua-mobile', operation: 'set', value: '?1' },
+                                { header: 'sec-ch-ua-mobile', operation: 'set', value: '?0' },
                                 { header: 'sec-ch-ua-platform', operation: 'set', value: `"${dev.platform}"` },
                                 { header: 'sec-ch-ua-model', operation: 'set', value: `"${dev.model}"` },
                                 { header: 'sec-ch-ua-platform-version', operation: 'set', value: `"${dev.version}"` },
+                                { header: 'sec-ch-ua-arch', operation: 'set', value: '"x86"' },
+                                { header: 'sec-ch-ua-bitness', operation: 'set', value: '"64"' },
                                 { header: 'sec-ch-ua', operation: 'set', value: dev.secChUa }
                             ]
                         },
@@ -110,54 +113,163 @@ function applyDeviceEmulationFromStorage() {
                     }
                 ]
             }, () => {
-                console.log(`📱 [DEVICE ENGINE] Đã kích hoạt cố định thiết bị: ${dev.name}`);
+                console.log(`💻 [DEVICE ENGINE] Đã kích hoạt thiết bị Windows: ${dev.name}`);
             });
         } catch (e) {
-            console.error('Lỗi nạp thiết bị:', e);
+            console.error('Lỗi nạp thiết bị Windows:', e);
         }
     });
 }
 applyDeviceEmulationFromStorage();
 
-// 📱 INJECT DEVICE FINGERPRINT VÀO MAIN WORLD (bypass CSP)
+// 💻 INJECT WINDOWS DERIVED HARDWARE FINGERPRINT VÀO MAIN WORLD (bypass CSP)
 function injectDeviceToMainWorld(devData) {
     try { Object.defineProperty(navigator, 'userAgent', { get: function(){ return devData.ua; }, configurable: true }); } catch(e){}
     try { Object.defineProperty(navigator, 'appVersion', { get: function(){ return devData.appVer; }, configurable: true }); } catch(e){}
     try { Object.defineProperty(navigator, 'platform', { get: function(){ return devData.platform; }, configurable: true }); } catch(e){}
-    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: function(){ return devData.maxTouch; }, configurable: true }); } catch(e){}
+    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: function(){ return devData.maxTouch || 0; }, configurable: true }); } catch(e){}
     try { Object.defineProperty(navigator, 'vendor', { get: function(){ return devData.vendor; }, configurable: true }); } catch(e){}
     try { Object.defineProperty(navigator, 'deviceMemory', { get: function(){ return devData.deviceMemory; }, configurable: true }); } catch(e){}
     try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: function(){ return devData.hardwareConcurrency; }, configurable: true }); } catch(e){}
-    if (devData.uadPlatform === 'iOS') {
-        try { Object.defineProperty(navigator, 'userAgentData', { get: function(){ return undefined; }, configurable: true }); } catch(e){}
-    } else {
-        try { Object.defineProperty(navigator, 'userAgentData', {
+    try {
+        Object.defineProperty(navigator, 'userAgentData', {
             get: function(){ return {
-                brands: devData.brands, mobile: true, platform: devData.uadPlatform,
+                brands: devData.brands,
+                mobile: false,
+                platform: devData.uadPlatform,
                 getHighEntropyValues: function(){ return Promise.resolve({
-                    architecture: devData.arch, bitness: devData.bitness, model: devData.model,
-                    platform: devData.uadPlatform, platformVersion: devData.platformVer
+                    architecture: devData.arch,
+                    bitness: devData.bitness,
+                    model: devData.model || "",
+                    platform: devData.uadPlatform,
+                    platformVersion: devData.platformVer,
+                    uaFullVersion: devData.uaFullVer
                 }); }
             }; }, configurable: true
-        }); } catch(e){}
-    }
+        });
+    } catch(e){}
+
+    // WebGL Hardware Fingerprint (GPU Vendor / Renderer)
+    try {
+        const getParameterOrig = WebGLRenderingContext.prototype.getParameter;
+        WebGLRenderingContext.prototype.getParameter = function(param) {
+            if (param === 37445) return devData.gpuVendor || 'Google Inc. (NVIDIA)';
+            if (param === 37446) return devData.gpuRenderer || 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+            return getParameterOrig.apply(this, arguments);
+        };
+    } catch(e){}
+    try {
+        if (typeof WebGL2RenderingContext !== 'undefined') {
+            const getParameter2Orig = WebGL2RenderingContext.prototype.getParameter;
+            WebGL2RenderingContext.prototype.getParameter = function(param) {
+                if (param === 37445) return devData.gpuVendor || 'Google Inc. (NVIDIA)';
+                if (param === 37446) return devData.gpuRenderer || 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+                return getParameter2Orig.apply(this, arguments);
+            };
+        }
+    } catch(e){}
 }
 
-// DB cho main world (phải match với DEVICE_DATABASE)
+// DB cho main world (match với DEVICE_DATABASE)
 const DEVICE_INJECT_DB = {
-    'samsung_s24': { ua:'Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36', appVer:'5.0 (Linux; Android 14; SM-S928B)', platform:'Linux armv8l', uadPlatform:'Android', model:'SM-S928B', platformVer:'14.0.0', arch:'arm64', bitness:'64', brands:[{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}], vendor:'Google Inc.', maxTouch:5, deviceMemory:12, hardwareConcurrency:8 },
-    'iphone_14_pro_max': { ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', appVer:'5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X)', platform:'iPhone', uadPlatform:'iOS', model:'iPhone15,3', platformVer:'17.5.1', arch:'arm64', bitness:'64', brands:[], vendor:'Apple Computer, Inc.', maxTouch:5, deviceMemory:6, hardwareConcurrency:6 },
-    'iphone_15': { ua:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', appVer:'5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X)', platform:'iPhone', uadPlatform:'iOS', model:'iPhone16,2', platformVer:'17.5.1', arch:'arm64', bitness:'64', brands:[], vendor:'Apple Computer, Inc.', maxTouch:5, deviceMemory:8, hardwareConcurrency:6 },
-    'xiaomi_14': { ua:'Mozilla/5.0 (Linux; Android 14; 23116PN5BC) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36', appVer:'5.0 (Linux; Android 14; 23116PN5BC)', platform:'Linux aarch64', uadPlatform:'Android', model:'23116PN5BC', platformVer:'14.0.0', arch:'arm64', bitness:'64', brands:[{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}], vendor:'Google Inc.', maxTouch:5, deviceMemory:12, hardwareConcurrency:8 },
-    'pixel_8': { ua:'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.6613.88 Mobile Safari/537.36', appVer:'5.0 (Linux; Android 14; Pixel 8 Pro)', platform:'Linux aarch64', uadPlatform:'Android', model:'Pixel 8 Pro', platformVer:'14.0.0', arch:'arm64', bitness:'64', brands:[{brand:"Chromium",version:"128"},{brand:"Google Chrome",version:"128"},{brand:"Not;A=Brand",version:"24"}], vendor:'Google Inc.', maxTouch:5, deviceMemory:12, hardwareConcurrency:8 }
+    'win11_dell_xps': {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        appVer: '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        platform: 'Win32',
+        uadPlatform: 'Windows',
+        model: '',
+        platformVer: '15.0.0',
+        uaFullVer: '133.0.6943.127',
+        arch: 'x86',
+        bitness: '64',
+        brands: [{brand:"Chromium",version:"133"},{brand:"Google Chrome",version:"133"},{brand:"Not?A_Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 0,
+        deviceMemory: 32,
+        hardwareConcurrency: 20,
+        gpuVendor: 'Google Inc. (NVIDIA)',
+        gpuRenderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4060 Laptop GPU Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    'win11_asus_rog': {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        appVer: '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        platform: 'Win32',
+        uadPlatform: 'Windows',
+        model: '',
+        platformVer: '15.0.0',
+        uaFullVer: '133.0.6943.127',
+        arch: 'x86',
+        bitness: '64',
+        brands: [{brand:"Chromium",version:"133"},{brand:"Google Chrome",version:"133"},{brand:"Not?A_Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 0,
+        deviceMemory: 16,
+        hardwareConcurrency: 16,
+        gpuVendor: 'Google Inc. (NVIDIA)',
+        gpuRenderer: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Laptop GPU Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    'win10_thinkpad_x1': {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        appVer: '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
+        platform: 'Win32',
+        uadPlatform: 'Windows',
+        model: '',
+        platformVer: '10.0.0',
+        uaFullVer: '132.0.6834.111',
+        arch: 'x86',
+        bitness: '64',
+        brands: [{brand:"Chromium",version:"132"},{brand:"Google Chrome",version:"132"},{brand:"Not?A_Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 0,
+        deviceMemory: 16,
+        hardwareConcurrency: 12,
+        gpuVendor: 'Google Inc. (Intel)',
+        gpuRenderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    'win11_hp_spectre': {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        appVer: '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        platform: 'Win32',
+        uadPlatform: 'Windows',
+        model: '',
+        platformVer: '15.0.0',
+        uaFullVer: '133.0.6943.127',
+        arch: 'x86',
+        bitness: '64',
+        brands: [{brand:"Chromium",version:"133"},{brand:"Google Chrome",version:"133"},{brand:"Not?A_Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 10,
+        deviceMemory: 16,
+        hardwareConcurrency: 12,
+        gpuVendor: 'Google Inc. (Intel)',
+        gpuRenderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    },
+    'win11_edge_surface': {
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0',
+        appVer: '5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0',
+        platform: 'Win32',
+        uadPlatform: 'Windows',
+        model: '',
+        platformVer: '15.0.0',
+        uaFullVer: '133.0.3065.82',
+        arch: 'x86',
+        bitness: '64',
+        brands: [{brand:"Chromium",version:"133"},{brand:"Microsoft Edge",version:"133"},{brand:"Not?A_Brand",version:"24"}],
+        vendor: 'Google Inc.',
+        maxTouch: 10,
+        deviceMemory: 16,
+        hardwareConcurrency: 12,
+        gpuVendor: 'Google Inc. (Intel)',
+        gpuRenderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+    }
 };
 
 // Inject vào MAIN WORLD khi tab Facebook load
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'loading' && tab.url && (tab.url.includes('facebook.com') || tab.url.includes('fbcdn.net'))) {
         chrome.storage.local.get(['deviceProfileKey'], (res) => {
-            const key = res.deviceProfileKey || 'samsung_s24';
-            const devData = DEVICE_INJECT_DB[key] || DEVICE_INJECT_DB['samsung_s24'];
+            const key = res.deviceProfileKey || 'win11_dell_xps';
+            const devData = DEVICE_INJECT_DB[key] || DEVICE_INJECT_DB['win11_dell_xps'];
             try {
                 chrome.scripting.executeScript({
                     target: { tabId: tabId },
@@ -166,7 +278,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                     args: [devData]
                 });
             } catch(e) {
-                console.log('⚠️ Không thể inject device vào tab:', e.message);
+                console.log('⚠️ Không thể inject device Windows vào tab:', e.message);
             }
         });
     }

@@ -1062,10 +1062,10 @@ loadDeviceProfileUI();
 
 
 
-// XỬ LÝ LỰA CHỌN THIẾT BỊ CỐ ĐỊNH CHO PROFILE
+// XỬ LÝ LỰA CHỌN THIẾT BỊ CỐ ĐỊNH CHO PROFILE (WINDOWS PC & DERIVED)
 function loadDeviceProfileUI() {
     chrome.storage.local.get(['deviceProfileKey'], (res) => {
-        const key = res.deviceProfileKey || 'samsung_s24';
+        const key = res.deviceProfileKey || 'win11_dell_xps';
         const s1 = document.getElementById('selectDeviceProfile');
         const s2 = document.getElementById('selectDeviceProfile2');
         const l1 = document.getElementById('deviceActiveLabel');
@@ -1075,13 +1075,13 @@ function loadDeviceProfileUI() {
         if (s2) s2.value = key;
 
         const mapNames = {
-            'samsung_s24': 'Samsung S24 Ultra',
-            'iphone_14_pro_max': 'iPhone 14 Pro Max',
-            'iphone_15': 'iPhone 15 Pro Max',
-            'xiaomi_14': 'Xiaomi 14 Pro',
-            'pixel_8': 'Pixel 8 Pro'
+            'win11_dell_xps': '💻 Dell XPS 15 (Win 11)',
+            'win11_asus_rog': '💻 ASUS ROG (Win 11)',
+            'win10_thinkpad_x1': '💻 ThinkPad X1 (Win 10)',
+            'win11_hp_spectre': '💻 HP Spectre (Win 11)',
+            'win11_edge_surface': '💻 MS Surface (Edge 133)'
         };
-        const text = mapNames[key] || 'Samsung S24 Ultra';
+        const text = mapNames[key] || '💻 Dell XPS 15 (Win 11)';
         if (l1) l1.innerText = text;
         if (l2) l2.innerText = text;
     });
