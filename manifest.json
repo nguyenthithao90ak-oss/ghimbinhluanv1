@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AutoPinBot Mobile Simulator",
+  "name": "AutoPinBot - Facebook Reels Auto Pin",
   "version": "1.0",
-  "description": "Giả lập giao diện iPhone 12 Pro để duyệt m.facebook.com",
+  "description": "Tự động chuyển Fanpage và ghim bình luận Facebook Reels (Trình duyệt sạch nguyên bản)",
   "permissions": [
     "declarativeNetRequest",
     "declarativeNetRequestWithHostAccess",

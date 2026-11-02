@@ -1,6 +1,6 @@
 
 // ======================================================================================
-// ACCOUNT SWITCHER CONTROLLER (WINDOWS EMULATION SYNCED WITH BACKGROUND.JS)
+// ACCOUNT SWITCHER CONTROLLER (CLEAN BROWSER MODE - NGUYÊN BẢN 100%)
 // ======================================================================================
 
 var delay = (minMs, maxMs = minMs) => {

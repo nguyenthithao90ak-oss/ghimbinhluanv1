@@ -1057,53 +1057,11 @@ function updateProxyDisplay() {
 }
 setInterval(updateProxyDisplay, 1000);
 updateProxyDisplay();
-loadDeviceProfileUI();
     loadGeminiUI();
 
 
 
-// XỬ LÝ LỰA CHỌN THIẾT BỊ CỐ ĐỊNH CHO PROFILE (WINDOWS PC & DERIVED)
-function loadDeviceProfileUI() {
-    chrome.storage.local.get(['deviceProfileKey'], (res) => {
-        const key = res.deviceProfileKey || 'win11_dell_xps';
-        const s1 = document.getElementById('selectDeviceProfile');
-        const s2 = document.getElementById('selectDeviceProfile2');
-        const l1 = document.getElementById('deviceActiveLabel');
-        const l2 = document.getElementById('deviceActiveLabel2');
-
-        if (s1) s1.value = key;
-        if (s2) s2.value = key;
-
-        const mapNames = {
-            'win11_dell_xps': '💻 Dell XPS 15 (Win 11)',
-            'win11_asus_rog': '💻 ASUS ROG (Win 11)',
-            'win10_thinkpad_x1': '💻 ThinkPad X1 (Win 10)',
-            'win11_hp_spectre': '💻 HP Spectre (Win 11)',
-            'win11_edge_surface': '💻 MS Surface (Edge 133)'
-        };
-        const text = mapNames[key] || '💻 Dell XPS 15 (Win 11)';
-        if (l1) l1.innerText = text;
-        if (l2) l2.innerText = text;
-    });
-}
-
-function saveDeviceChoice(val) {
-    chrome.storage.local.set({ deviceProfileKey: val }, () => {
-        safeRuntimeSendMessage({ action: 'applyDeviceEmulation', deviceKey: val });
-        loadDeviceProfileUI();
-        alert('✅ ĐÃ LƯU THÀNH CÔNG: Profile này từ nay cố định là ' + val.toUpperCase() + '!');
-    });
-}
-
-document.getElementById('btnSaveDeviceProfile')?.addEventListener('click', () => {
-    saveDeviceChoice(document.getElementById('selectDeviceProfile').value);
-});
-document.getElementById('btnSaveDeviceProfile2')?.addEventListener('click', () => {
-    saveDeviceChoice(document.getElementById('selectDeviceProfile2').value);
-});
-
-
-
+// [CLEAN MODE] Đã gỡ bỏ toàn bộ giả lập thiết bị. Trình duyệt hoạt động nguyên bản 100%.
 // NÚT TEST KIỂM TRA IP PROXY THỰC TẾ
 // 🌐 NÚT TEST IP - KIỂM TRA QUA TAB WEB (TRAFFIC ĐI QUA PROXY)
 document.getElementById('btnTestProxy')?.addEventListener('click', async () => {
